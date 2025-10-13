@@ -102,7 +102,7 @@
                         <div class="col-md-3">
                             <div class="form-group">
                                 <input type="text" name="search" value="{{@request()->search}}" class="form-control"
-                                       placeholder="@lang('Type Here')">
+                                       placeholder="@lang('Name, Email, or Username')">
                             </div>
                         </div>
 

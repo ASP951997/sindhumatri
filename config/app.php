@@ -165,7 +165,6 @@ return [
         /*
          * Package Service Providers...
          */
-        Intervention\Image\ImageServiceProvider::class,
         Ixudra\Curl\CurlServiceProvider::class,
         Nexmo\Laravel\NexmoServiceProvider::class,
 
@@ -233,7 +232,6 @@ return [
         'Validator' => Illuminate\Support\Facades\Validator::class,
         'View' => Illuminate\Support\Facades\View::class,
 
-        'Image' => Intervention\Image\Facades\Image::class,
         'Curl' => Ixudra\Curl\Facades\Curl::class,
         'Nexmo' => Nexmo\Laravel\Facade\Nexmo::class
 
@@ -241,3 +239,6 @@ return [
     ],
 
 ];
+
+
+

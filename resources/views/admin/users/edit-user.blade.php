@@ -108,6 +108,10 @@
                                         <label>@lang('First Name')</label>
                                         <input class="form-control" type="text" name="firstname"
                                                value="{{ $user->firstname }}"
+                                               pattern="[A-Z][a-z]*"
+                                               title="First name must start with a capital letter and contain only alphabets"
+                                               placeholder="E.g., John"
+                                               oninput="this.value = this.value.replace(/[^a-zA-Z]/g, '').charAt(0).toUpperCase() + this.value.replace(/[^a-zA-Z]/g, '').slice(1).toLowerCase()"
                                                required>
                                         @error('firstname')
                                         <span class="text-danger">{{ $message }}</span>
@@ -120,6 +124,10 @@
                                         <label>@lang('Last Name')</label>
                                         <input class="form-control" type="text" name="lastname"
                                                value="{{ $user->lastname }}"
+                                               pattern="[A-Z][a-z]*"
+                                               title="Last name must start with a capital letter and contain only alphabets"
+                                               placeholder="E.g., Doe"
+                                               oninput="this.value = this.value.replace(/[^a-zA-Z]/g, '').charAt(0).toUpperCase() + this.value.replace(/[^a-zA-Z]/g, '').slice(1).toLowerCase()"
                                                required>
                                         @error('lastname')
                                         <span class="text-danger">{{ $message }}</span>
@@ -152,7 +160,7 @@
                                 <div class="col-md-4">
                                     <div class="form-group ">
                                         <label>@lang('Phone Number')</label>
-                                        <input class="form-control" type="text" name="phone" value="{{ $user->phone }}">
+                                        <input class="form-control" type="text" name="phone" value="{{ $user->phone }}" maxlength="10" pattern="[0-9]{10}" placeholder="Enter 10 digit phone number">
                                         @error('phone')
                                         <span class="text-danger">{{ $message }}</span>
                                         @enderror

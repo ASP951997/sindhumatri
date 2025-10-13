@@ -221,6 +221,14 @@
                             <span class="hide-menu">@lang('Send Email')</span>
                         </a>
                     </li>
+
+                    <li class="sidebar-item">
+                        <a class="sidebar-link" href="{{ route('admin.whatsapp-send') }}"
+                           aria-expanded="false">
+                            <i class="fab fa-whatsapp text-success"></i>
+                            <span class="hide-menu">@lang('Send WhatsApp to Selected Users')</span>
+                        </a>
+                    </li>
                 @endif
 
                 @if(adminAccessRoute(config('role.report_list.access.view')))
@@ -427,7 +435,12 @@
                             </ul>
                         </li>
 
-
+                        <li class="sidebar-item {{menuActive(['admin.whatsapp.settings'],3)}}">
+                            <a class="sidebar-link" href="{{route('admin.whatsapp.settings')}}" aria-expanded="false">
+                                <i class="fab fa-whatsapp text-success"></i>
+                                <span class="hide-menu">@lang('WhatsApp Settings')</span>
+                            </a>
+                        </li>
 
                         <li class="sidebar-item {{menuActive(['admin.plugin.config','admin.tawk.control','admin.fb.messenger.control','admin.google.recaptcha.control','admin.google.analytics.control'],3)}}">
                             <a class="sidebar-link" href="{{route('admin.plugin.config')}}" aria-expanded="false">

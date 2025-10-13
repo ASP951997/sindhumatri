@@ -23,15 +23,18 @@ class ManageRolePermissionController extends Controller
     public function storeStaff(Request $request)
     {
         $this->validate($request,[
-            'name' => 'required|max:191',
+            'name' => ['required', 'max:191', 'regex:/^[A-Z][a-z]*$/'],
             'username' => 'required|alpha_dash|unique:admins,username',
             'email' => 'required|email|max:191|unique:admins,email',
             'password' => 'nullable|min:5',
             'status' => 'required'
+        ], [
+            'name.required' => 'Name is required',
+            'name.regex' => 'Name must start with a capital letter and contain only alphabets (no numbers, spaces, or special characters)',
         ]);
 
         $item = new Admin();
-        $item->name = $request->name;
+        $item->name = ucfirst(strtolower(trim(preg_replace('/[^a-zA-Z]/', '', $request->name))));
         $item->username = $request->username;
         $item->email = $request->email;
         $item->phone = $request->phone;
@@ -51,15 +54,18 @@ class ManageRolePermissionController extends Controller
     {
 
         $this->validate($request,[
-            'name' => 'required|max:191',
+            'name' => ['required', 'max:191', 'regex:/^[A-Z][a-z]*$/'],
             'username' => 'required|alpha_dash|unique:admins,username,'.$id,
             'email' => 'required|email|max:191|unique:admins,email,'.$id,
             'password' => 'nullable|min:5',
             'status' => 'required'
+        ], [
+            'name.required' => 'Name is required',
+            'name.regex' => 'Name must start with a capital letter and contain only alphabets (no numbers, spaces, or special characters)',
         ]);
 
         $item = Admin::findOrFail($id);
-        $item->name = $request->name;
+        $item->name = ucfirst(strtolower(trim(preg_replace('/[^a-zA-Z]/', '', $request->name))));
         $item->username = $request->username;
         $item->email = $request->email;
         $item->phone = $request->phone;

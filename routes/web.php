@@ -10,6 +10,249 @@ Route::get('/clear', function () {
     return $output->fetch();
 })->name('/clear');
 
+Route::get('/send-event-invite-jayshree', function () {
+    try {
+        // Find Jayshree Nawale
+        $user = \App\Models\User::where('firstname', 'LIKE', '%Jayshree%')
+            ->where('lastname', 'LIKE', '%Nawale%')
+            ->first();
+
+        if (!$user) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'User "Jayshree Nawale" not found in the database!'
+            ], 404);
+        }
+
+        if (!$user->phone) {
+            return response()->json([
+                'status' => 'error',
+                'message' => "User '{$user->fullname}' does not have a phone number!"
+            ], 400);
+        }
+
+        // Event invitation message
+        $message = "Subject: 💬 Join Our 30-Minute Live Talk with Your Perfect Match!\n\nDear {$user->firstname},\nWe're excited to invite you to our 30-Minute Live Talk Event — a chance to interact directly with your matching profiles on SindhuMatri.com.\n\n🕒 Duration: 30 Minutes\n💞 Meet: Verified matches based on your preferences\n🎥 Mode: Secure live chat/video call through SindhuMatri.com\n\nDon't miss this opportunity to connect meaningfully and take the next step toward finding your life partner.\n\n👉 Click here to Join the Event Now!\nBest regards,\nSindhuMatri.com Team";
+        
+        // Message API configuration
+        $apiUrl = config('whatsapp.api_url');
+        $apiId = config('whatsapp.api_id', config('whatsapp.uid'));
+        $deviceName = config('whatsapp.device_name');
+        
+        if (!$apiId || !$deviceName) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'WhatsApp API not configured properly'
+            ], 500);
+        }
+
+        // Format phone number
+        $phone = preg_replace('/[^0-9+]/', '', $user->phone);
+        if (substr($phone, 0, 1) === '+') {
+            $phone = substr($phone, 1);
+        }
+        if (substr($phone, 0, 2) !== '91') {
+            $phone = '91' . $phone;
+        }
+        
+        // Prepare JSON body
+        $postData = [
+            'id' => $apiId,
+            'name' => $deviceName,
+            'phone' => $phone,
+            'message' => $message,
+        ];
+        
+        $jsonData = json_encode($postData);
+
+        // Send WhatsApp message
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $apiUrl);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $jsonData);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Content-Type: application/json',
+            'Accept: application/json',
+        ]);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        curl_close($ch);
+
+        // Log
+        \Log::info('WhatsApp Event Invitation to Jayshree Nawale', [
+            'user' => $user->fullname,
+            'phone' => $phone,
+            'api_id' => $apiId,
+            'response' => $response,
+            'http_code' => $httpCode,
+        ]);
+
+        if ($httpCode === 200 || $httpCode === 201) {
+            return response()->json([
+                'status' => 'success',
+                'message' => "Event invitation sent successfully to {$user->fullname}!",
+                'user' => $user->fullname,
+                'phone' => $phone,
+                'api_response' => $response,
+                'http_code' => $httpCode
+            ]);
+        } else {
+            return response()->json([
+                'status' => 'error',
+                'message' => "Failed to send message to {$user->fullname}",
+                'user' => $user->fullname,
+                'phone' => $phone,
+                'api_response' => $response,
+                'http_code' => $httpCode,
+                'curl_error' => $curlError
+            ], 500);
+        }
+    } catch (\Exception $e) {
+        \Log::error('Event Invitation Error', [
+            'error' => $e->getMessage()
+        ]);
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Exception: ' . $e->getMessage()
+        ], 500);
+    }
+});
+
+Route::get('/send-whatsapp-hrishikesh', function () {
+    try {
+        // Find user Hrishikesh Jadhav
+        $user = \App\Models\User::where(function($query) {
+            $query->where('firstname', 'LIKE', '%Hrishikesh%')
+                  ->orWhere('lastname', 'LIKE', '%Jadhav%')
+                  ->orWhereRaw("CONCAT(firstname, ' ', lastname) LIKE ?", ['%Hrishikesh%Jadhav%']);
+        })->first();
+
+        if (!$user) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'User "Hrishikesh Jadhav" not found in the database!'
+            ], 404);
+        }
+
+        if (!$user->phone) {
+            return response()->json([
+                'status' => 'error',
+                'message' => "User '{$user->fullname}' does not have a phone number!"
+            ], 400);
+        }
+
+        // Prepare message
+        $message = "Hello [[name]], this is a test WhatsApp message from the Matrimony platform!";
+        $personalizedMessage = str_replace('[[name]]', $user->firstname ?? 'User', $message);
+        
+        // Message API configuration
+        $apiUrl = config('whatsapp.api_url');
+        $apiId = config('whatsapp.api_id', config('whatsapp.uid'));
+        $deviceName = config('whatsapp.device_name');
+        
+        if (!$apiId || !$deviceName) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'WhatsApp API not configured properly - missing API ID or Device Name'
+            ], 500);
+        }
+
+        // Format phone number (remove + and ensure it's in correct format)
+        $phone = preg_replace('/[^0-9+]/', '', $user->phone);
+        if (substr($phone, 0, 1) !== '+') {
+            $defaultCountryCode = config('whatsapp.default_country_code', '+91');
+            $phone = $defaultCountryCode . $phone;
+        }
+        // Remove '+' sign as the API expects plain number
+        $phone = str_replace('+', '', $phone);
+        
+        // Prepare JSON body for Message API
+        $postData = [
+            'id' => $apiId,
+            'name' => $deviceName,
+            'phone' => $phone,
+            'message' => $personalizedMessage,
+        ];
+        
+        $jsonData = json_encode($postData);
+
+        // Prepare headers
+        $headers = [
+            'Content-Type: application/json',
+            'Accept: application/json',
+        ];
+
+        // Send WhatsApp message via Message API using POST request
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $apiUrl);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $jsonData);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_MAXREDIRS, 3);
+        
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        curl_close($ch);
+
+        // Log the request and response
+        \Log::info('WhatsApp API Request to Hrishikesh Jadhav (POST)', [
+            'user' => $user->fullname,
+            'api_url' => $apiUrl,
+            'api_id' => $apiId,
+            'device_name' => $deviceName,
+            'phone' => $phone,
+            'message' => $personalizedMessage,
+            'post_data' => $postData,
+            'response' => $response,
+            'http_code' => $httpCode,
+            'curl_error' => $curlError
+        ]);
+
+        // Check if request was successful
+        if ($httpCode === 200 || $httpCode === 201) {
+            return response()->json([
+                'status' => 'success',
+                'message' => "WhatsApp message sent successfully to {$user->fullname}!",
+                'user' => $user->fullname,
+                'phone' => $phone,
+                'api_response' => $response,
+                'http_code' => $httpCode
+            ]);
+        } else {
+            return response()->json([
+                'status' => 'error',
+                'message' => "Failed to send WhatsApp message to {$user->fullname}",
+                'user' => $user->fullname,
+                'phone' => $phone,
+                'api_response' => $response,
+                'http_code' => $httpCode,
+                'curl_error' => $curlError
+            ], 500);
+        }
+    } catch (\Exception $e) {
+        \Log::error('WhatsApp Message Send Error', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Exception occurred: ' . $e->getMessage()
+        ], 500);
+    }
+});
+
 
 Route::get('/user', 'Auth\LoginController@showLoginForm')->name('login');
 Route::post('/loginModal', 'Auth\LoginController@loginModal')->name('loginModal');
@@ -242,6 +485,9 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.'], function () {
 
         Route::get('/email-send', 'Admin\UsersController@emailToUsers')->name('email-send');
         Route::post('/email-send', 'Admin\UsersController@sendEmailToUsers')->name('email-send.store');
+
+        Route::get('/whatsapp-send', 'Admin\UsersController@whatsappToSelectedUsers')->name('whatsapp-send');
+        Route::post('/whatsapp-send', 'Admin\UsersController@sendWhatsAppToSelectedUsers')->name('whatsapp-send.store');
 
         // user profile make approve/pending
         Route::put('/users/profile/approve/{id}', 'Admin\UsersController@profileApprove')->name('profile-approve');
@@ -561,6 +807,10 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.'], function () {
         Route::match(['get', 'post'], 'fb-messenger-config', 'Admin\BasicController@fbMessengerConfig')->name('fb.messenger.control');
         Route::match(['get', 'post'], 'google-recaptcha', 'Admin\BasicController@googleRecaptchaConfig')->name('google.recaptcha.control');
         Route::match(['get', 'post'], 'google-analytics', 'Admin\BasicController@googleAnalyticsConfig')->name('google.analytics.control');
+        
+        /* ======== WhatsApp Settings =======*/
+        Route::match(['get', 'post'], 'whatsapp-settings', 'Admin\BasicController@whatsappConfig')->name('whatsapp.settings');
+        Route::get('whatsapp-check-status', 'Admin\BasicController@checkWhatsAppStatus')->name('whatsapp.checkStatus');
 
     });
 

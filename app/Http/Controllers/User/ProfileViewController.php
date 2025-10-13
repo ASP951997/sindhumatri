@@ -108,6 +108,12 @@ class ProfileViewController extends Controller
                 ->when(isset($user->partner_min_height), function ($query) use ($user) {
                     return $query->where('height', '>=', $user->partner_min_height);
                 })
+                ->when(isset($user->partner_max_weight), function ($query) use ($user) {
+                    return $query->where('height', '<=', $user->partner_max_weight);
+                })
+                ->when(isset($user->age), function ($query) use ($user) {
+                    return $query->where('age', '<', $user->age);
+                })
 				->when(isset($user->partner_gender), function ($query) use ($user) {
                     return $query->where('gender', $user->partner_gender);
                 })

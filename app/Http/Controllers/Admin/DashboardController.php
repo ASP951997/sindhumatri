@@ -117,14 +117,18 @@ class DashboardController extends Controller
     {
         $req = Purify::clean($request->except('_token', '_method'));
         $rules = [
-            'name' => 'sometimes|required',
+            'name' => ['sometimes', 'required', 'regex:/^[A-Z][a-z]*$/'],
             'username' => 'sometimes|required|unique:admins,username,' . $this->user->id,
             'email' => 'sometimes|required|email|unique:admins,email,' . $this->user->id,
-            'phone' => 'sometimes|required',
+            'phone' => 'sometimes|required|digits:10',
             'address' => 'sometimes|required',
             'image' => ['nullable', 'image', new FileTypeValidate(['jpeg', 'jpg', 'png'])]
         ];
-        $validator = Validator::make($request->all(), $rules);
+        $messages = [
+            'name.required' => 'Name is required',
+            'name.regex' => 'Name must start with a capital letter and contain only alphabets (no numbers, spaces, or special characters)',
+        ];
+        $validator = Validator::make($request->all(), $rules, $messages);
         if ($validator->fails()) {
             return back()->withErrors($validator)->withInput();
         }
@@ -137,7 +141,7 @@ class DashboardController extends Controller
                 return back()->with('error', 'Image could not be uploaded.');
             }
         }
-        $user->name = $req['name'];
+        $user->name = ucfirst(strtolower(trim(preg_replace('/[^a-zA-Z]/', '', $req['name']))));
         $user->username = $req['username'];
         $user->email = $req['email'];
         $user->phone = $req['phone'];

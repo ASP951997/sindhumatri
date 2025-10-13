@@ -394,3 +394,18 @@ function basicControl()
 {
     return Configure::firstOrCreate(['id' => 1]);
 }
+
+/**
+ * Send WhatsApp message helper function
+ * 
+ * @param string $phone Phone number
+ * @param string $message Message text
+ * @param string|null $userName User name for personalization (optional)
+ * @param string|null $filePath Path to file attachment (optional)
+ * @return array Result with 'success' boolean and 'message' string
+ */
+function sendWhatsApp($phone, $message, $userName = null, $filePath = null)
+{
+    $whatsappService = new \App\Services\WhatsAppService();
+    return $whatsappService->sendMessage($phone, $message, $userName, $filePath);
+}

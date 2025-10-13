@@ -36,7 +36,11 @@
                                     <div class="col-md-6">
                                         <div class="form-group">
                                             <label>@lang('Name') <span class="text-danger">*</span></label>
-                                            <input type="text" name="name" class="form-control form-control-lg" value="{{$admin->name}}" placeholder="@lang('Enter Name')">
+                                            <input type="text" name="name" class="form-control form-control-lg" value="{{$admin->name}}" 
+                                                   pattern="[A-Z][a-z]*"
+                                                   title="Name must start with a capital letter and contain only alphabets"
+                                                   placeholder="E.g., John"
+                                                   oninput="this.value = this.value.replace(/[^a-zA-Z]/g, '').charAt(0).toUpperCase() + this.value.replace(/[^a-zA-Z]/g, '').slice(1).toLowerCase()">
 
                                             @error('name')
                                             <span class="text-danger">{{ $message }}</span>
@@ -71,7 +75,7 @@
                                     <div class="col-md-6">
                                         <div class="form-group">
                                             <label>@lang('Phone Number') <span class="text-danger">*</span></label>
-                                            <input type="text" name="phone" class="form-control" value="{{$admin->phone}}" placeholder="@lang('Enter Phone Number')">
+                                            <input type="text" name="phone" class="form-control" value="{{$admin->phone}}" placeholder="@lang('Enter 10 digit phone number')" maxlength="10" pattern="[0-9]{10}">
 
                                             @error('phone')
                                             <span class="text-danger">{{ $message }}</span>

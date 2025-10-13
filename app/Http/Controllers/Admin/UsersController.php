@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\File;
 use Facades\App\Services\BasicService;
 use Stevebauman\Purify\Facades\Purify;
 use Illuminate\Support\Facades\Validator;
+use App\Services\WhatsAppService;
 
 
 class UsersController extends Controller
@@ -37,8 +38,14 @@ class UsersController extends Controller
         $dateSearch = $request->date_time;
         $date = preg_match("/^[0-9]{2,4}\-[0-9]{1,2}\-[0-9]{1,2}$/", $dateSearch);
         $users = User::when(isset($search['search']), function ($query) use ($search) {
-            return $query->where('email', 'LIKE', "%{$search['search']}%")
-                ->orWhere('username', 'LIKE', "%{$search['search']}%");
+            $searchTerm = $search['search'];
+            return $query->where(function($q) use ($searchTerm) {
+                $q->where('email', 'LIKE', "%{$searchTerm}%")
+                  ->orWhere('username', 'LIKE', "%{$searchTerm}%")
+                  ->orWhere('firstname', 'LIKE', "%{$searchTerm}%")
+                  ->orWhere('lastname', 'LIKE', "%{$searchTerm}%")
+                  ->orWhereRaw("CONCAT(firstname, ' ', lastname) LIKE ?", ["%{$searchTerm}%"]);
+            });
         })
             ->when($date == 1, function ($query) use ($dateSearch) {
                 return $query->whereDate("created_at", $dateSearch);
@@ -145,17 +152,20 @@ class UsersController extends Controller
         $userData = Purify::clean($request->except('_token', '_method'));
         $user = User::findOrFail($id);
         $rules = [
-            'firstname' => 'sometimes|required',
-            'lastname' => 'sometimes|required',
+            'firstname' => ['sometimes', 'required', 'regex:/^[A-Z][a-z]*$/'],
+            'lastname' => ['sometimes', 'required', 'regex:/^[A-Z][a-z]*$/'],
             'username' => 'sometimes|required|unique:users,username,' . $user->id,
             'email' => 'sometimes|required|email|unique:users,email,' . $user->id,
-            'phone' => 'sometimes|required',
+            'phone' => 'sometimes|required|digits:10',
             'image' => ['nullable', 'image', new FileTypeValidate(['jpeg', 'jpg', 'png'])],
             'language_id' => Rule::in($languages),
         ];
         $message = [
             'firstname.required' => 'First Name is required',
+            'firstname.regex' => 'First Name must start with a capital letter and contain only alphabets (no numbers, spaces, or special characters)',
             'lastname.required' => 'Last Name is required',
+            'lastname.regex' => 'Last Name must start with a capital letter and contain only alphabets (no numbers, spaces, or special characters)',
+            'phone.digits' => 'Phone number must be exactly 10 digits',
         ];
 
         $Validator = Validator::make($userData, $rules, $message);
@@ -172,8 +182,8 @@ class UsersController extends Controller
                 return back()->with('error', 'Image could not be uploaded.');
             }
         }
-        $user->firstname = $userData['firstname'];
-        $user->lastname = $userData['lastname'];
+        $user->firstname = ucfirst(strtolower(trim(preg_replace('/[^a-zA-Z]/', '', $userData['firstname']))));
+        $user->lastname = ucfirst(strtolower(trim(preg_replace('/[^a-zA-Z]/', '', $userData['lastname']))));
         $user->username = $userData['username'];
         $user->email = $userData['email'];
         $user->phone = $userData['phone'];
@@ -277,14 +287,89 @@ class UsersController extends Controller
                 return back()->with('success', 'Balance deducted Successfully.');
             }
         }
-
-
     }
 
+    /**
+     * Simulate WhatsApp message sending for testing purposes
+     */
+    private function simulateWhatsAppMessage($phone, $message, $userName = null)
+    {
+        try {
+            // Get simulation configuration
+            $successRate = config('whatsapp.simulation_mode.success_rate', 100);
+            $delaySeconds = config('whatsapp.simulation_mode.delay_seconds', 1);
+            $logSimulated = config('whatsapp.simulation_mode.log_simulated', true);
+            
+            // Simulate API delay
+            if ($delaySeconds > 0) {
+                sleep($delaySeconds);
+            }
+            
+            // Simulate success/failure based on success rate
+            $isSuccess = (rand(1, 100) <= $successRate);
+            
+            // Format phone number for logging
+            $formattedPhone = $this->formatPhoneNumber($phone);
+            
+            // Log the simulation
+            if ($logSimulated) {
+                \Log::info('WhatsApp Message Simulation', [
+                    'phone' => $formattedPhone,
+                    'user_name' => $userName,
+                    'message' => $message,
+                    'success' => $isSuccess,
+                    'simulation_mode' => true,
+                    'uid' => config('whatsapp.uid'),
+                    'device_name' => config('whatsapp.device_name'),
+                    'timestamp' => now()->toDateTimeString()
+                ]);
+            }
+            
+            if ($isSuccess) {
+                // Simulate successful API response
+                $simulatedResponse = [
+                    'status' => 'success',
+                    'message_id' => 'sim_' . uniqid(),
+                    'phone' => $formattedPhone,
+                    'message' => 'Message sent successfully (SIMULATED)',
+                    'timestamp' => now()->toISOString()
+                ];
+                
+                \Log::info('WhatsApp Message Simulation Success', $simulatedResponse);
+                return true;
+            } else {
+                // Simulate failed API response
+                $simulatedError = [
+                    'status' => 'error',
+                    'error_code' => 'SIMULATION_FAILURE',
+                    'error_message' => 'Simulated API failure for testing',
+                    'phone' => $formattedPhone,
+                    'timestamp' => now()->toISOString()
+                ];
+                
+                \Log::warning('WhatsApp Message Simulation Failure', $simulatedError);
+                return false;
+            }
+            
+        } catch (\Exception $e) {
+            \Log::error('WhatsApp simulation exception: ' . $e->getMessage());
+            return false;
+        }
+    }
 
     public function emailToUsers()
     {
         return view('admin.users.mail-form');
+    }
+
+    public function whatsappToSelectedUsers()
+    {
+        $users = User::where('status', 1)
+            ->select('id', 'firstname', 'lastname', 'email', 'phone')
+            ->orderBy('firstname')
+            ->get();
+        
+        return view('admin.users.whatsapp-form', compact('users'));
     }
 
 
@@ -305,6 +390,229 @@ class UsersController extends Controller
         }
 
         return back()->with('success', 'Mail Send Successfully');
+    }
+
+    public function sendWhatsAppToSelectedUsers(Request $request)
+    {
+        // Validate first before cleaning
+        $rules = [
+            'message' => 'required',
+            'selected_users' => 'required|array|min:1',
+            'attachment' => 'nullable|file|mimes:pdf,png,jpg,jpeg|max:10240' // 10MB max
+        ];
+        $validator = Validator::make($request->all(), $rules);
+        if ($validator->fails()) {
+            if ($request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+            return back()->withErrors($validator)->withInput();
+        }
+
+        // Clean the message but keep selected_users as is
+        $message = Purify::clean($request->input('message'));
+        $selectedUserIds = $request->input('selected_users');
+
+        // Handle file upload if present (store the actual file path for direct upload)
+        $attachmentPath = null;
+        if ($request->hasFile('attachment')) {
+            $file = $request->file('attachment');
+            $fileName = time() . '_' . $file->getClientOriginalName();
+            // Store in public storage
+            $storagePath = $file->storeAs('whatsapp/attachments', $fileName, 'public');
+            // Get the full file system path for direct upload to WhatsApp API
+            $attachmentPath = storage_path('app/public/' . $storagePath);
+        }
+
+        // Get selected users
+        $selectedUsers = User::whereIn('id', $selectedUserIds)
+            ->where('status', 1)
+            ->get();
+
+        if ($selectedUsers->isEmpty()) {
+            if ($request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No valid users selected to send WhatsApp messages.'
+                ], 400);
+            }
+            return back()->with('error', 'No valid users selected to send WhatsApp messages.');
+        }
+
+        // Use the new WhatsApp service
+        $whatsappService = new WhatsAppService();
+        
+        $successCount = 0;
+        $failedCount = 0;
+        $noPhoneCount = 0;
+
+        foreach ($selectedUsers as $user) {
+            if ($user->phone) {
+                // Use the new WhatsApp service with direct file upload support
+                $result = $whatsappService->sendMessage(
+                    $user->phone, 
+                    $message, 
+                    $user->firstname, 
+                    $attachmentPath
+                );
+                
+                if ($result['success']) {
+                    $successCount++;
+                } else {
+                    $failedCount++;
+                }
+            } else {
+                $noPhoneCount++;
+            }
+        }
+
+        $messageText = "WhatsApp messages sent successfully to {$successCount} users.";
+        if ($attachmentPath) {
+            $messageText .= " (with file attachment)";
+        }
+        if ($failedCount > 0) {
+            $messageText .= " Failed to send to {$failedCount} users (API errors).";
+        }
+        if ($noPhoneCount > 0) {
+            $messageText .= " {$noPhoneCount} users skipped (no phone number).";
+        }
+
+        // Return JSON for AJAX requests
+        if ($request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => $messageText,
+                'stats' => [
+                    'success' => $successCount,
+                    'failed' => $failedCount,
+                    'no_phone' => $noPhoneCount,
+                    'total' => $selectedUsers->count()
+                ]
+            ]);
+        }
+
+        return back()->with('success', $messageText);
+    }
+
+    private function sendWhatsAppMessage($phone, $message, $userName = null, $fileUrl = null)
+    {
+        try {
+            // Replace placeholders in message
+            $personalizedMessage = str_replace('[[name]]', $userName ?? 'User', $message);
+            
+            // Check if simulation mode is enabled
+            if (config('whatsapp.simulation_mode.enabled', true)) {
+                return $this->simulateWhatsAppMessage($phone, $personalizedMessage, $userName);
+            }
+            
+            // Message API configuration
+            $apiUrl = config('whatsapp.api_url');
+            $apiId = config('whatsapp.api_id', config('whatsapp.uid'));
+            $deviceName = config('whatsapp.device_name');
+            
+            if (!$apiUrl) {
+                \Log::error('WhatsApp API URL not configured properly');
+                return false;
+            }
+
+            // Format phone number (remove + and ensure it's in correct format)
+            $formattedPhone = $this->formatPhoneNumber($phone);
+            // Ensure country code is present
+            if (substr($formattedPhone, 0, 1) === '+') {
+                $formattedPhone = substr($formattedPhone, 1);
+            }
+            if (substr($formattedPhone, 0, 2) !== '91') {
+                $formattedPhone = '91' . $formattedPhone;
+            }
+            
+            // Build query parameters for GET request
+            $queryParams = [
+                'phone' => $formattedPhone,
+                'message' => $personalizedMessage,
+            ];
+            
+            // Add file URL if attachment exists
+            if ($fileUrl) {
+                $queryParams['file'] = $fileUrl;
+            }
+            
+            // Build full URL with query parameters
+            $fullUrl = $apiUrl . '?' . http_build_query($queryParams);
+
+            // Send WhatsApp message via Message API using GET request
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $fullUrl);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_MAXREDIRS, 3);
+            
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
+            curl_close($ch);
+
+            // Log the request and response for debugging
+            \Log::info('WhatsApp API Request (GET with File Support)', [
+                'api_url' => $apiUrl,
+                'phone' => $formattedPhone,
+                'has_file' => $fileUrl ? 'Yes' : 'No',
+                'file_url' => $fileUrl,
+                'message_preview' => substr($personalizedMessage, 0, 50) . '...',
+                'response' => $response,
+                'http_code' => $httpCode,
+                'curl_error' => $curlError
+            ]);
+
+            // Check if request was successful
+            if ($httpCode === 200 || $httpCode === 201) {
+                $responseData = json_decode($response, true);
+                
+                // Check for success indicators
+                if (isset($responseData['status']) && in_array($responseData['status'], ['success', 'sent', 'delivered'])) {
+                    return true;
+                }
+                if (isset($responseData['success']) && $responseData['success'] === true) {
+                    return true;
+                }
+                if (isset($responseData['message_id']) || isset($responseData['id'])) {
+                    return true;
+                }
+                if (isset($responseData['result']) && $responseData['result'] === 'success') {
+                    return true;
+                }
+            }
+
+            \Log::error('WhatsApp message sending failed', [
+                'http_code' => $httpCode,
+                'response' => $response,
+                'curl_error' => $curlError
+            ]);
+
+            return false;
+        } catch (\Exception $e) {
+            \Log::error('WhatsApp message sending exception: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    private function formatPhoneNumber($phone)
+    {
+        // Remove all non-numeric characters except +
+        $phone = preg_replace('/[^0-9+]/', '', $phone);
+        
+        // If phone doesn't start with +, add default country code
+        if (!str_starts_with($phone, '+')) {
+            $defaultCountryCode = config('whatsapp.default_country_code', '+91');
+            $phone = $defaultCountryCode . $phone;
+        }
+        
+        return $phone;
     }
 
 

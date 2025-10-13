@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
-use Image;
+use Intervention\Image\ImageManager;
+use Intervention\Image\Drivers\Gd\Driver;
+use Intervention\Image\Drivers\Imagick\Driver as ImagickDriver;
 use Carbon\Carbon;
 use App\Models\Plan;
 use App\Http\Traits\Notify;
@@ -22,7 +24,21 @@ class BasicService
         } else {
             $image = uniqid() . '.jpg';
         }
-        Image::make($getImage->getRealPath())->resize(300, 250)->save($path . $image);
+        try {
+            if (extension_loaded('gd')) {
+                $manager = new ImageManager(new Driver());
+            } elseif (extension_loaded('imagick')) {
+                $manager = new ImageManager(new ImagickDriver());
+            } else {
+                // Fallback: just copy the file without processing
+                copy($getImage->getRealPath(), $path . $image);
+                return $image;
+            }
+            $manager->read($getImage->getRealPath())->resize(300, 250)->save($path . $image);
+        } catch (\Exception $e) {
+            // Fallback: just copy the file without processing
+            copy($getImage->getRealPath(), $path . $image);
+        }
         return $image;
     }
 

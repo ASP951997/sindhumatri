@@ -48,6 +48,7 @@
                                                     <th scope="col">@lang('Name')</th>
                                                     <th scope="col">@lang('Price')</th>
                                                     <th scope="col">@lang('Purchased At')</th>
+                                                    <th scope="col">@lang('End of Purchase')</th>
                                                 </tr>
                                                 </thead>
                                                 <tbody>
@@ -57,10 +58,11 @@
                                                         <td>@lang(optional($data->planDetails)->name)</td>
                                                         <td>{{getAmount($data->amount)}} @lang($basic->currency)</td>
                                                         <td>{{ dateTime($data->created_at, 'd M Y, h:i A') }}</td>
+                                                        <td>{{ dateTime($data->created_at->addYear(), 'd M Y, h:i A') }}</td>
                                                     </tr>
                                                 @empty
                                                     <tr>
-                                                        <td colspan="100%" class="text-center">@lang('No Data Found!')</td>
+                                                        <td colspan="5" class="text-center">@lang('No Data Found!')</td>
                                                     </tr>
                                                 @endforelse
                                                 </tbody>

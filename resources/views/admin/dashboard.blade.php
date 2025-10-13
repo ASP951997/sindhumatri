@@ -299,7 +299,7 @@
                                             <td data-label="@lang('Email')">@lang($user->email)</td>
                                             @php
                                                 $sss = \App\Models\ProfileInfo::where('user_id',$user->id)->first();
-                                                $getStep = collect($sss)->except(['id','user_id','created_at','updated_at','status','astronomic_info']);
+                                                $getStep = collect($sss)->except(['residency_information','attitude_behavior','id','user_id','created_at','updated_at','status','astronomic_info']);
                                                 $totalStep = count($getStep);
                                                 $filtered = $getStep->values()->filter(function ($value, $key){
                                                     return $value > 0;

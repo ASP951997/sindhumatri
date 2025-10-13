@@ -68,7 +68,12 @@
                                                             <div class="form-group col-md-6">
                                                                 <label class="text-dark"> {{trans('Name')}} :</label>
                                                                 <input class="form-control " name="name"
-                                                                       placeholder="{{trans('Name')}}" value="{{$data->name}}" required autocomplete="off">
+                                                                       placeholder="{{trans('Name')}}" value="{{$data->name}}" 
+                                                                       pattern="[A-Z][a-z]*"
+                                                                       title="Name must start with a capital letter and contain only alphabets"
+                                                                       placeholder="E.g., John"
+                                                                       oninput="this.value = this.value.replace(/[^a-zA-Z]/g, '').charAt(0).toUpperCase() + this.value.replace(/[^a-zA-Z]/g, '').slice(1).toLowerCase()"
+                                                                       required autocomplete="off">
                                                             </div>
                                                             <div class="form-group col-md-6">
                                                                 <label class="text-dark"> {{trans('Username')}} :</label>
@@ -225,7 +230,12 @@
                             <div class="form-group col-md-6">
                                 <label class="text-dark"> {{trans('Name')}} :</label>
                                 <input class="form-control " name="name"
-                                       placeholder="{{trans('Name')}}" value="{{old('name')}}" required>
+                                       placeholder="{{trans('Name')}}" value="{{old('name')}}" 
+                                       pattern="[A-Z][a-z]*"
+                                       title="Name must start with a capital letter and contain only alphabets"
+                                       placeholder="E.g., John"
+                                       oninput="this.value = this.value.replace(/[^a-zA-Z]/g, '').charAt(0).toUpperCase() + this.value.replace(/[^a-zA-Z]/g, '').slice(1).toLowerCase()"
+                                       required>
                             </div>
                             <div class="form-group col-md-6">
                                 <label class="text-dark"> {{trans('Username')}} :</label>

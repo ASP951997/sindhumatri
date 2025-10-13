@@ -406,16 +406,22 @@ class FrontendController extends Controller
                 return $query->where('mother_tongue', 'like', "%" . $search['mother_tongue'] . "%");
             })
             ->when(isset($search['country']), function ($query) use ($search) {
-                return $query->where('present_country', $search['country'])
+                return $query->where(function ($subQuery) use ($search) {
+                    return $subQuery->where('present_country', $search['country'])
                     ->orWhere('permanent_country', $search['country']);
+                });
             })
             ->when(isset($search['state']), function ($query) use ($search) {
-                return $query->where('present_state', $search['state'])
+                return $query->where(function ($subQuery) use ($search) {
+                    return $subQuery->where('present_state', $search['state'])
                     ->orWhere('permanent_state', $search['state']);
+                });
             })
             ->when(isset($search['city']), function ($query) use ($search) {
-                return $query->where('present_city', $search['city'])
+                return $query->where(function ($subQuery) use ($search) {
+                    return $subQuery->where('present_city', $search['city'])
                     ->orWhere('permanent_city', $search['city']);
+                });
             })
              ->when(isset($search['max_height']), function ($query) use ($search) {
         $maxHeightInches = $this->convertHeightToInches($search['max_height']);
@@ -428,7 +434,7 @@ class FrontendController extends Controller
             (SUBSTRING_INDEX(height, "ft", 1) * 12 + SUBSTRING_INDEX(SUBSTRING_INDEX(height, " ", -1), "in", 1)) >= ?', [$minHeightInches]);
     })
             ->orderBy('id','DESC')
-            ->paginate(5);
+            ->paginate(15);
 		//print_r($data['allUser']);
 		//exit;
         $data['allUser']->appends($search);
