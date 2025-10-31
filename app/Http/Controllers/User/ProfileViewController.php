@@ -111,7 +111,13 @@ class ProfileViewController extends Controller
                 ->when(isset($user->partner_max_weight), function ($query) use ($user) {
                     return $query->where('height', '<=', $user->partner_max_weight);
                 })
-                ->when(isset($user->age), function ($query) use ($user) {
+                // If logged-in user is female: match only males with age greater than her age
+                ->when(($user && isset($user->gender) && strtolower($user->gender) === 'female' && isset($user->age)), function ($query) use ($user) {
+                    return $query->where('gender', 'male')
+                                 ->where('age', '>', $user->age);
+                })
+                // Otherwise, fall back to generic age preference if any (keep existing behavior)
+                ->when(($user && isset($user->gender) && strtolower($user->gender) !== 'female' && isset($user->age)), function ($query) use ($user) {
                     return $query->where('age', '<', $user->age);
                 })
 				->when(isset($user->partner_gender), function ($query) use ($user) {

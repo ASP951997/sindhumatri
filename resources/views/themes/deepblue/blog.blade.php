@@ -10,11 +10,12 @@
               <div class="col-lg-8">
                 @forelse ($allBlogs as $blog)
                  <div class="blog-box mb-5">
-                    <div class="img-box">
+                    <div class="img-box text-center">
                        <img
                           class="img-fluid"
                           src="{{getFile(config('location.blog.path').$blog->image)}}"
                           alt="@lang('blog img')"
+                          style="max-width: 100%; height: auto; margin: 0 auto; display: block;"
                        />
                     </div>
                     <div class="text-box">

@@ -444,7 +444,7 @@ class UsersController extends Controller
 
         // Use the new WhatsApp service
         $whatsappService = new WhatsAppService();
-        
+
         $successCount = 0;
         $failedCount = 0;
         $noPhoneCount = 0;

@@ -577,7 +577,7 @@
             $('#loadingScreen').fadeIn(300);
             
             // Disable button and show loading state
-            $('#send-btn').html('<i class="fas fa-spinner fa-spin"></i> @lang("Sending...")').prop('disabled', true);
+                $('#send-btn').html('<i class="fas fa-spinner fa-spin"></i> @lang("Sending...")').prop('disabled', true);
             
             // Submit form via AJAX
             var formData = new FormData($('form')[0]);

@@ -26,7 +26,7 @@
                                         </p>
                                         <hr>
                                         <p class="mb-0 small">
-                                            <strong>@lang('Current API URL:'))</strong> 
+                                            <strong>@lang('Current API URL:')</strong> 
                                             <code>https://messagesapi.co.in/chat</code>
                                         </p>
                                         <button type="button" class="close" data-dismiss="alert" aria-label="Close">
@@ -93,10 +93,10 @@
                                                 <li><strong>@lang('Device'):</strong> {{ $basicControl->whatsapp_device_name }}</li>
                                                 <li>
                                                     <strong>@lang('Device Status'):</strong> 
-                                                    <span id="device-status-badge" class="badge badge-success">
-                                                        <i class="fas fa-check-circle"></i> @lang('Connected')
+                                                    <span id="device-status-badge" class="badge badge-danger">
+                                                        <i class="fas fa-times-circle"></i> @lang('Disconnected')
                                                     </span>
-                                                    <small class="text-muted ml-2" id="status-note">(@lang('Based on configuration'))</small>
+                                                    <small class="text-muted ml-2" id="status-note">(@lang('Not verified'))</small>
                                                 </li>
                                                 <li><strong>@lang('Configuration'):</strong> <span class="badge badge-success">@lang('Active')</span></li>
                                             </ul>
@@ -190,8 +190,7 @@
     "use strict";
     
     $(document).ready(function() {
-        // Don't auto-check on page load since we show "Connected" by default
-        // Only check when button is clicked
+        // Default display is Disconnected until verified
         
         // Refresh status button click
         $('#check-status-btn').on('click', function() {
@@ -223,11 +222,11 @@
                     updateStatusDisplay(response);
                 },
                 error: function(xhr, status, error) {
-                    // If request fails, assume connected since credentials are configured
+                    // On error, keep as Disconnected (do not assume connected)
                     updateStatusDisplay({
-                        connected: true,
-                        message: '@lang("Device configured - Unable to verify status automatically")',
-                        note: '@lang("Status check unavailable")'
+                        connected: false,
+                        message: '@lang("Unable to verify device status")',
+                        note: '@lang("Status check failed")'
                     });
                 },
                 complete: function() {
@@ -255,12 +254,6 @@
                 } else {
                     $note.html('(@lang("API reachable"))');
                 }
-            } else if (response.error) {
-                // Error checking status - still show as connected if configured
-                $badge.removeClass('badge-secondary badge-danger')
-                      .addClass('badge-success')
-                      .html('<i class="fas fa-check-circle"></i> @lang("Connected")');
-                $note.html('(@lang("Based on configuration"))');
             } else {
                 // Device is disconnected
                 $badge.removeClass('badge-secondary badge-success badge-warning')

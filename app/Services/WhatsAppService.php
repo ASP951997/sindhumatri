@@ -294,6 +294,91 @@ class WhatsAppService
     }
 
     /**
+     * Check device connection status with Message API.
+     * Tries a lightweight status endpoint; falls back to probing sendMessageFile response text.
+     * @return array{connected:bool,status:string,http_code?:int,response?:string}
+     */
+    public function checkConnection()
+    {
+        // Robust connection probe using sendMessageFile with a dummy request
+        $probeUrl = "{$this->baseUrl}/sendMessageFile/{$this->apiId}/{$this->deviceName}?phone=910000000000&message=ping";
+        $resp = $this->sendGetRequest($probeUrl);
+
+        $connected = false;
+        $label = 'disconnected';
+
+        if ($resp['http_code'] >= 200 && $resp['http_code'] < 300) {
+            $data = json_decode($resp['response'], true);
+            if (is_array($data)) {
+                $status = strtolower((string)($data['status'] ?? ''));
+                // Explicit error means disconnected
+                if ($status === 'error') {
+                    $connected = false;
+                    $label = 'disconnected';
+                }
+                // Success indicates connected
+                elseif ($status === 'success') {
+                    $connected = true;
+                    $label = 'connected';
+                }
+                // Inspect results array if present
+                if (isset($data['results']) && is_array($data['results'])) {
+                    foreach ($data['results'] as $r) {
+                        $rs = strtolower((string)($r['status'] ?? ''));
+                        $err = strtolower((string)($r['error'] ?? ''));
+                        if ($rs === 'error' || str_contains($err, 'not connected') || str_contains($err, 'offline')) {
+                            $connected = false;
+                            $label = 'disconnected';
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // If JSON didn't clarify, check plain response text
+            if (!$connected) {
+                $text = strtolower((string)$resp['response']);
+                if (str_contains($text, 'not connected') || str_contains($text, 'offline')) {
+                    $connected = false;
+                    $label = 'disconnected';
+                } elseif (str_contains($text, 'success')) {
+                    $connected = true;
+                    $label = 'connected';
+                }
+            }
+        }
+
+        return [
+            'connected' => $connected,
+            'status' => $label,
+            'http_code' => $resp['http_code'] ?? null,
+            'response' => $resp['response'] ?? null,
+        ];
+    }
+
+    /**
+     * Simple GET request helper.
+     * @param string $url
+     * @return array{http_code:int,response:string,error:string}
+     */
+    protected function sendGetRequest($url)
+    {
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 8);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_MAXREDIRS, 2);
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        curl_close($ch);
+        return ['http_code' => $httpCode, 'response' => $response, 'error' => $curlError];
+    }
+
+    /**
      * Personalize message by replacing placeholders
      *
      * @param string $message Original message
@@ -422,4 +507,429 @@ class WhatsAppService
         return $stats;
     }
 }
+
+
+                        'message' => 'Message sent successfully',
+
+                        'http_code' => $httpCode,
+
+                        'response' => $responseBody,
+
+                        'data' => $responseData
+
+                    ];
+
+                } else {
+
+                    return [
+
+                        'success' => false,
+
+                        'message' => $responseData['message'] ?? 'API returned non-success result',
+
+                        'http_code' => $httpCode,
+
+                        'response' => $responseBody
+
+                    ];
+
+                }
+
+            }
+
+            
+
+            // If no explicit result field, consider 2xx as success
+
+            return [
+
+                'success' => true,
+
+                'message' => 'Message sent successfully',
+
+                'http_code' => $httpCode,
+
+                'response' => $responseBody
+
+            ];
+
+        } else {
+
+            return [
+
+                'success' => false,
+
+                'message' => "HTTP Error {$httpCode}",
+
+                'http_code' => $httpCode,
+
+                'response' => $responseBody
+
+            ];
+
+        }
+
+    }
+
+
+    /**
+     * Check device connection status with Message API.
+     * Tries a lightweight status endpoint; falls back to probing sendMessageFile response text.
+     * @return array{connected:bool,status:string,http_code?:int,response?:string}
+     */
+    public function checkConnection()
+    {
+        // Robust connection probe using sendMessageFile with a dummy request
+        $probeUrl = "{$this->baseUrl}/sendMessageFile/{$this->apiId}/{$this->deviceName}?phone=910000000000&message=ping";
+        $resp = $this->sendGetRequest($probeUrl);
+
+        $connected = false;
+        $label = 'disconnected';
+
+        if ($resp['http_code'] >= 200 && $resp['http_code'] < 300) {
+            $data = json_decode($resp['response'], true);
+            if (is_array($data)) {
+                $status = strtolower((string)($data['status'] ?? ''));
+                // Explicit error means disconnected
+                if ($status === 'error') {
+                    $connected = false;
+                    $label = 'disconnected';
+                }
+                // Success indicates connected
+                elseif ($status === 'success') {
+                    $connected = true;
+                    $label = 'connected';
+                }
+                // Inspect results array if present
+                if (isset($data['results']) && is_array($data['results'])) {
+                    foreach ($data['results'] as $r) {
+                        $rs = strtolower((string)($r['status'] ?? ''));
+                        $err = strtolower((string)($r['error'] ?? ''));
+                        if ($rs === 'error' || str_contains($err, 'not connected') || str_contains($err, 'offline')) {
+                            $connected = false;
+                            $label = 'disconnected';
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // If JSON didn't clarify, check plain response text
+            if (!$connected) {
+                $text = strtolower((string)$resp['response']);
+                if (str_contains($text, 'not connected') || str_contains($text, 'offline')) {
+                    $connected = false;
+                    $label = 'disconnected';
+                } elseif (str_contains($text, 'success')) {
+                    $connected = true;
+                    $label = 'connected';
+                }
+            }
+        }
+
+        // Extract message from response
+        $message = 'Status unknown';
+        if (!empty($resp['response'])) {
+            $data = json_decode($resp['response'], true);
+            if (isset($data['message'])) {
+                $message = $data['message'];
+            } elseif ($connected) {
+                $message = 'Device is connected and online';
+            } else {
+                $message = 'Device is not connected';
+            }
+        }
+
+        return [
+            'connected' => $connected,
+            'status' => $label,
+            'message' => $message,
+            'http_code' => $resp['http_code'] ?? null,
+            'response' => $resp['response'] ?? null,
+        ];
+    }
+
+    /**
+     * Simple GET request helper.
+     * @param string $url
+     * @return array{http_code:int,response:string,error:string}
+     */
+    protected function sendGetRequest($url)
+    {
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 8);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_MAXREDIRS, 2);
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        curl_close($ch);
+        return ['http_code' => $httpCode, 'response' => $response, 'error' => $curlError];
+    }
+
+
+    /**
+
+     * Personalize message by replacing placeholders
+
+     *
+
+     * @param string $message Original message
+
+     * @param string|null $userName User name
+
+     * @return string Personalized message
+
+     */
+
+    protected function personalizeMessage($message, $userName = null)
+
+    {
+
+        return str_replace('[[name]]', $userName ?? 'User', $message);
+
+    }
+
+
+
+    /**
+
+     * Format phone number with country code
+
+     *
+
+     * @param string $phone Phone number
+
+     * @return string Formatted phone (without + sign)
+
+     */
+
+    protected function formatPhoneNumber($phone)
+
+    {
+
+        // Remove all non-numeric characters except +
+
+        $phone = preg_replace('/[^0-9+]/', '', $phone);
+
+        
+
+        // Add country code if not present
+
+        if (!str_starts_with($phone, '+')) {
+
+            $phone = $this->defaultCountryCode . $phone;
+
+        }
+
+        
+
+        // Remove + sign as API expects plain number
+
+        $phone = str_replace('+', '', $phone);
+
+        
+
+        return $phone;
+
+    }
+
+
+
+    /**
+
+     * Validate WhatsApp configuration
+
+     *
+
+     * @return bool True if valid
+
+     */
+
+    protected function validateConfig()
+
+    {
+
+        return !empty($this->apiId) && !empty($this->deviceName);
+
+    }
+
+
+
+    /**
+
+     * Simulate message sending (for testing)
+
+     *
+
+     * @param string $phone Phone number
+
+     * @param string $message Message text
+
+     * @param string|null $userName User name
+
+     * @param string|null $filePath File path
+
+     * @return array Simulated response
+
+     */
+
+    protected function simulateMessage($phone, $message, $userName = null, $filePath = null)
+
+    {
+
+        $successRate = config('whatsapp.simulation_mode.success_rate', 100);
+
+        $delaySeconds = config('whatsapp.simulation_mode.delay_seconds', 1);
+
+        
+
+        // Simulate API delay
+
+        if ($delaySeconds > 0) {
+
+            sleep($delaySeconds);
+
+        }
+
+        
+
+        // Simulate success/failure based on success rate
+
+        $isSuccess = (rand(1, 100) <= $successRate);
+
+        
+
+        Log::info('WhatsApp Message Simulation', [
+
+            'phone' => $phone,
+
+            'user_name' => $userName,
+
+            'has_file' => $filePath ? 'Yes' : 'No',
+
+            'message_preview' => substr($message, 0, 100),
+
+            'success' => $isSuccess,
+
+            'simulation_mode' => true
+
+        ]);
+
+        
+
+        if ($isSuccess) {
+
+            return [
+
+                'success' => true,
+
+                'message' => 'Message sent successfully (SIMULATED)',
+
+                'simulation' => true
+
+            ];
+
+        } else {
+
+            return [
+
+                'success' => false,
+
+                'message' => 'Simulated API failure for testing',
+
+                'simulation' => true
+
+            ];
+
+        }
+
+    }
+
+
+
+    /**
+
+     * Send bulk messages to multiple users
+
+     *
+
+     * @param array $users Array of users with phone and name
+
+     * @param string $message Message to send
+
+     * @param string|null $filePath Optional file attachment
+
+     * @return array Statistics with success/failed/noPhone counts
+
+     */
+
+    public function sendBulkMessages($users, $message, $filePath = null)
+
+    {
+
+        $stats = [
+
+            'success' => 0,
+
+            'failed' => 0,
+
+            'no_phone' => 0,
+
+            'total' => count($users)
+
+        ];
+
+        
+
+        foreach ($users as $user) {
+
+            if (empty($user['phone'])) {
+
+                $stats['no_phone']++;
+
+                continue;
+
+            }
+
+            
+
+            $userName = $user['name'] ?? $user['firstname'] ?? null;
+
+            $result = $this->sendMessage($user['phone'], $message, $userName, $filePath);
+
+            
+
+            if ($result['success']) {
+
+                $stats['success']++;
+
+            } else {
+
+                $stats['failed']++;
+
+            }
+
+            
+
+            // Rate limiting - small delay between messages
+
+            usleep(500000); // 0.5 seconds
+
+        }
+
+        
+
+        return $stats;
+
+    }
+
+}
+
+
+
 

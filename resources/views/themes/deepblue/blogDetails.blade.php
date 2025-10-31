@@ -9,11 +9,12 @@
            <div class="row gy-5 g-lg-5">
               <div class="col-lg-8">
                  <div class="blog-box">
-                    <div class="img-box">
+                    <div class="img-box text-center">
                        <img
                           class="img-fluid"
                           src="{{getFile(config('location.blog.path').$singleBlog->image)}}"
                           alt="@lang('blog img')"
+                          style="max-width: 100%; height: auto; margin: 0 auto; display: block;"
                        />
                     </div>
                     <div class="text-box">
