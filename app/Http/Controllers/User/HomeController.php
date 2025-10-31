@@ -126,6 +126,17 @@ class HomeController extends Controller
             return back()->with('error', 'Invalid Plan Request');
         }
 
+        // Check if user already has an active subscription for this plan
+        $existingActivePlan = Fund::where('user_id', $user->id)
+            ->where('plan_id', $request->plan_id)
+            ->where('status', 1)
+            ->where('created_at', '>=', Carbon::now()->subYear())
+            ->first();
+
+        if ($existingActivePlan) {
+            return back()->with('error', 'You Already Purchased this package, try another package');
+        }
+
         $balance_type = $request->checkout;
         if (!in_array($balance_type, ['checkout'])) {
             return back()->with('error', 'Invalid Wallet Type');
