@@ -395,6 +395,7 @@ class BasicController extends Controller
 			}
 
 			// Use WhatsAppService to check real device connection
+			// This will automatically clear cache and get fresh status
 			$whatsappService = new \App\Services\WhatsAppService();
 			$status = $whatsappService->checkConnection();
 
@@ -403,18 +404,22 @@ class BasicController extends Controller
 				'api_id' => substr($basicControl->whatsapp_api_id, 0, 10) . '...',
 				'device_name' => $basicControl->whatsapp_device_name,
 				'connected' => $status['connected'],
-				'message' => $status['message']
+				'status' => $status['status'] ?? 'unknown',
+				'message' => $status['message'] ?? 'No message'
 			]);
 
 			return response()->json([
 				'connected' => $status['connected'],
-				'message' => $status['message'],
-				'note' => $status['connected'] ? 'Device is online' : 'Device not connected'
+				'message' => $status['message'] ?? ($status['connected'] ? 'Device is connected' : 'Device is not connected'),
+				'note' => $status['connected'] ? 'Device is online' : 'Device not connected',
+				'status' => $status['status'] ?? ($status['connected'] ? 'connected' : 'disconnected'),
+				'http_code' => $status['http_code'] ?? null
 			]);
 
 		} catch (\Exception $e) {
 			\Log::error('WhatsApp Status Check Error', [
-				'error' => $e->getMessage()
+				'error' => $e->getMessage(),
+				'trace' => $e->getTraceAsString()
 			]);
 
 			return response()->json([

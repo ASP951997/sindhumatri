@@ -93,10 +93,10 @@
                                                 <li><strong>@lang('Device'):</strong> {{ $basicControl->whatsapp_device_name }}</li>
                                                 <li>
                                                     <strong>@lang('Device Status'):</strong> 
-                                                    <span id="device-status-badge" class="badge badge-danger">
-                                                        <i class="fas fa-times-circle"></i> @lang('Disconnected')
+                                                    <span id="device-status-badge" class="badge badge-secondary pulse-animation">
+                                                        <i class="fas fa-spinner fa-spin"></i> @lang('Checking...')
                                                     </span>
-                                                    <small class="text-muted ml-2" id="status-note">(@lang('Not verified'))</small>
+                                                    <small class="text-muted ml-2" id="status-note">(@lang('Verifying connection...'))</small>
                                                 </li>
                                                 <li><strong>@lang('Configuration'):</strong> <span class="badge badge-success">@lang('Active')</span></li>
                                             </ul>
@@ -190,7 +190,8 @@
     "use strict";
     
     $(document).ready(function() {
-        // Default display is Disconnected until verified
+        // Automatically check device status on page load
+        checkDeviceStatus();
         
         // Refresh status button click
         $('#check-status-btn').on('click', function() {
@@ -243,23 +244,30 @@
             $badge.removeClass('pulse-animation');
             
             if (response.connected) {
-                // Device is connected or assumed connected
+                // Device is connected
                 $badge.removeClass('badge-secondary badge-danger badge-warning')
                       .addClass('badge-success')
                       .html('<i class="fas fa-check-circle"></i> @lang("Connected")');
                 
                 // Show note about verification
-                if (response.note) {
+                if (response.message) {
+                    $note.html('(' + response.message + ')');
+                } else if (response.note) {
                     $note.html('(' + response.note + ')');
                 } else {
-                    $note.html('(@lang("API reachable"))');
+                    $note.html('(@lang("Device is online"))');
                 }
             } else {
                 // Device is disconnected
                 $badge.removeClass('badge-secondary badge-success badge-warning')
                       .addClass('badge-danger')
                       .html('<i class="fas fa-times-circle"></i> @lang("Disconnected")');
-                $note.html('(@lang("Check device connection"))');
+                
+                if (response.message) {
+                    $note.html('(' + response.message + ')');
+                } else {
+                    $note.html('(@lang("Device not connected"))');
+                }
             }
             
             // Show tooltip with message if available

@@ -5,6 +5,10 @@ use Illuminate\Http\Request;
 
 define('LARAVEL_START', microtime(true));
 
+// Increase execution time limit for long-running requests
+set_time_limit(600); // 10 minutes
+ini_set('max_execution_time', 600);
+
 /*
 |--------------------------------------------------------------------------
 | Check If Application Is Under Maintenance

@@ -13,9 +13,14 @@
                     <div class="alert alert-info">
                         <i class="fab fa-whatsapp"></i>
                         <strong><?php echo app('translator')->get('WhatsApp Messaging:'); ?></strong> <?php echo app('translator')->get('Send personalized WhatsApp messages to selected users. You can attach files (PDF, images) up to 10MB.'); ?>
-                        <a href="<?php echo e(route('admin.whatsapp.settings')); ?>" class="alert-link float-right">
-                            <i class="fas fa-cog"></i> <?php echo app('translator')->get('Settings'); ?>
-                        </a>
+                        <div class="float-right">
+                            <a href="<?php echo e(route('admin.whatsapp-history')); ?>" class="alert-link mr-3">
+                                <i class="fas fa-history"></i> <?php echo app('translator')->get('Message History'); ?>
+                            </a>
+                            <a href="<?php echo e(route('admin.whatsapp.settings')); ?>" class="alert-link">
+                                <i class="fas fa-cog"></i> <?php echo app('translator')->get('Settings'); ?>
+                            </a>
+                        </div>
                     </div>
 
                     <div class="form-group">
@@ -517,20 +522,19 @@ unset($__errorArgs, $__bag); ?>
                             <i class="fab fa-whatsapp"></i>
                         </div>
                         <div class="custom-confirm-body">
-                            <h4><?php echo app('translator')->get("Send WhatsApp Message?"); ?></h4>
-                            <p><?php echo app('translator')->get("Are you sure you want to send this WhatsApp message to:"); ?></p>
+                            <h4><?php echo app('translator')->get("Confirm Send"); ?></h4>
+                            <p><strong><?php echo app('translator')->get("Are you sure you want to send WhatsApp message to selected users?"); ?></strong></p>
                             <div class="user-count-badge">
-                                ${selectedCount} ${selectedCount === 1 ? '<?php echo app('translator')->get("User"); ?>' : '<?php echo app('translator')->get("Users"); ?>'}
+                                <strong><?php echo app('translator')->get("No. of Users:"); ?></strong> ${selectedCount}
                             </div>
                             ${attachmentInfo}
-                            <p style="color: #999; font-size: 14px; margin-top: 15px;"><?php echo app('translator')->get("This action cannot be undone."); ?></p>
                         </div>
                         <div class="custom-confirm-buttons">
                             <button type="button" class="btn-confirm-yes" id="confirmYes">
-                                <i class="fas fa-check"></i> <?php echo app('translator')->get("Yes, Send Now"); ?>
+                                <i class="fas fa-check"></i> <?php echo app('translator')->get("Yes"); ?>
                             </button>
                             <button type="button" class="btn-confirm-no" id="confirmNo">
-                                <i class="fas fa-times"></i> <?php echo app('translator')->get("No, Cancel"); ?>
+                                <i class="fas fa-times"></i> <?php echo app('translator')->get("No"); ?>
                             </button>
                         </div>
                     </div>
@@ -579,6 +583,28 @@ unset($__errorArgs, $__bag); ?>
 
         // Function to submit form and show custom loading screen
         function sendWhatsAppMessages() {
+            // Validate before sending
+            var selectedCount = $('.user-checkbox:checked').length;
+            var message = $('#whatsapp-message').val().trim();
+            
+            if (selectedCount === 0) {
+                Notiflix.Report.warning(
+                    '<?php echo app('translator')->get("No Users Selected"); ?>',
+                    '<?php echo app('translator')->get("Please select at least one user to send the message."); ?>',
+                    '<?php echo app('translator')->get("OK"); ?>'
+                );
+                return;
+            }
+            
+            if (!message || message === '') {
+                Notiflix.Report.warning(
+                    '<?php echo app('translator')->get("Message Required"); ?>',
+                    '<?php echo app('translator')->get("Please enter a message to send."); ?>',
+                    '<?php echo app('translator')->get("OK"); ?>'
+                );
+                return;
+            }
+            
             // Show custom loading screen
             var loadingHtml = `
                 <div id="loadingScreen" class="loading-screen">
@@ -597,10 +623,39 @@ unset($__errorArgs, $__bag); ?>
             $('#loadingScreen').fadeIn(300);
             
             // Disable button and show loading state
-            $('#send-btn').html('<i class="fas fa-spinner fa-spin"></i> <?php echo app('translator')->get("Sending..."); ?>').prop('disabled', true);
+                $('#send-btn').html('<i class="fas fa-spinner fa-spin"></i> <?php echo app('translator')->get("Sending..."); ?>').prop('disabled', true);
             
-            // Submit form via AJAX
-            var formData = new FormData($('form')[0]);
+            // Collect selected users first
+            var selectedUsers = [];
+            $('.user-checkbox:checked').each(function() {
+                selectedUsers.push($(this).val());
+            });
+            
+            // Create FormData manually to ensure proper array handling
+            var formData = new FormData();
+            
+            // Add CSRF token
+            var csrfToken = $('meta[name="csrf-token"]').attr('content') || $('input[name="_token"]').val();
+            formData.append('_token', csrfToken);
+            
+            // Add message
+            formData.append('message', $('#whatsapp-message').val());
+            
+            // Add selected users as array (Laravel expects selected_users[] for arrays)
+            selectedUsers.forEach(function(userId) {
+                formData.append('selected_users[]', userId);
+            });
+            
+            // Add attachment if present
+            var attachmentFile = $('#attachment')[0].files[0];
+            if (attachmentFile) {
+                formData.append('attachment', attachmentFile);
+            }
+            
+            // Debug: Log what we're sending (remove in production)
+            console.log('Selected users:', selectedUsers);
+            console.log('Message:', $('#whatsapp-message').val());
+            console.log('Has attachment:', !!attachmentFile);
             
             $.ajax({
                 url: $('form').attr('action'),
@@ -608,22 +663,41 @@ unset($__errorArgs, $__bag); ?>
                 data: formData,
                 processData: false,
                 contentType: false,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': csrfToken
+                },
                 success: function(response) {
                     // Remove loading screen
                     $('#loadingScreen').fadeOut(300, function() {
                         $(this).remove();
                     });
                     
-                    // Show success message
-                    Notiflix.Report.success(
-                        '✅ <?php echo app('translator')->get("Success!"); ?>',
-                        '<?php echo app('translator')->get("WhatsApp messages have been sent successfully!"); ?>',
-                        '<?php echo app('translator')->get("OK"); ?>',
-                        function() {
-                            // Reload page to reset form
-                            window.location.reload();
-                        }
-                    );
+                    // Determine if backend reported success
+                    if (response && response.success) {
+                        Notiflix.Report.Success(
+                            '✅ <?php echo app('translator')->get("Success!"); ?>',
+                            response.message || '<?php echo app('translator')->get("WhatsApp messages have been sent successfully!"); ?>',
+                            '<?php echo app('translator')->get("OK"); ?>',
+                            function() {
+                                // Reload page to reset form
+                                window.location.reload();
+                            }
+                        );
+                    } else {
+                        // Treat missing/false success as failure
+                        var errorMessage = (response && response.message)
+                            ? response.message
+                            : '<?php echo app('translator')->get("Failed to send WhatsApp messages. Please try again."); ?>';
+                        
+                        $('#send-btn').html('<i class="fab fa-whatsapp"></i> <span><?php echo app('translator')->get("Send WhatsApp Message"); ?></span>').prop('disabled', false);
+                        
+                        Notiflix.Report.Failure(
+                            '❌ <?php echo app('translator')->get("Error"); ?>',
+                            errorMessage,
+                            '<?php echo app('translator')->get("OK"); ?>'
+                        );
+                    }
                 },
                 error: function(xhr, status, error) {
                     // Remove loading screen
@@ -634,14 +708,27 @@ unset($__errorArgs, $__bag); ?>
                     // Reset button
                     $('#send-btn').html('<i class="fab fa-whatsapp"></i> <span><?php echo app('translator')->get("Send WhatsApp Message"); ?></span>').prop('disabled', false);
                     
-                    // Show error message
+                    // Show error message with detailed validation errors
                     var errorMessage = '<?php echo app('translator')->get("Failed to send WhatsApp messages. Please try again."); ?>';
-                    if (xhr.responseJSON && xhr.responseJSON.message) {
-                        errorMessage = xhr.responseJSON.message;
+                    if (xhr.responseJSON) {
+                        if (xhr.responseJSON.message) {
+                            errorMessage = xhr.responseJSON.message;
+                        } else if (xhr.responseJSON.errors) {
+                            // Build error message from validation errors
+                            var errors = [];
+                            $.each(xhr.responseJSON.errors, function(field, messages) {
+                                $.each(messages, function(index, message) {
+                                    errors.push(message);
+                                });
+                            });
+                            if (errors.length > 0) {
+                                errorMessage = errors.join('<br>');
+                            }
+                        }
                     }
                     
-                    Notiflix.Report.failure(
-                        '❌ <?php echo app('translator')->get("Error"); ?>',
+                    Notiflix.Report.Failure(
+                        '❌ <?php echo app('translator')->get("Validation Error"); ?>',
                         errorMessage,
                         '<?php echo app('translator')->get("OK"); ?>'
                     );

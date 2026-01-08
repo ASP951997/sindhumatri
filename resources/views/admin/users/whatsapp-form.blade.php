@@ -14,9 +14,14 @@
                     <div class="alert alert-info">
                         <i class="fab fa-whatsapp"></i>
                         <strong>@lang('WhatsApp Messaging:')</strong> @lang('Send personalized WhatsApp messages to selected users. You can attach files (PDF, images) up to 10MB.')
-                        <a href="{{ route('admin.whatsapp.settings') }}" class="alert-link float-right">
-                            <i class="fas fa-cog"></i> @lang('Settings')
-                        </a>
+                        <div class="float-right">
+                            <a href="{{ route('admin.whatsapp-history') }}" class="alert-link mr-3">
+                                <i class="fas fa-history"></i> @lang('Message History')
+                            </a>
+                            <a href="{{ route('admin.whatsapp.settings') }}" class="alert-link">
+                                <i class="fas fa-cog"></i> @lang('Settings')
+                            </a>
+                        </div>
                     </div>
 
                     <div class="form-group">
@@ -497,20 +502,19 @@
                             <i class="fab fa-whatsapp"></i>
                         </div>
                         <div class="custom-confirm-body">
-                            <h4>@lang("Send WhatsApp Message?")</h4>
-                            <p>@lang("Are you sure you want to send this WhatsApp message to:")</p>
+                            <h4>@lang("Confirm Send")</h4>
+                            <p><strong>@lang("Are you sure you want to send WhatsApp message to selected users?")</strong></p>
                             <div class="user-count-badge">
-                                ${selectedCount} ${selectedCount === 1 ? '@lang("User")' : '@lang("Users")'}
+                                <strong>@lang("No. of Users:")</strong> ${selectedCount}
                             </div>
                             ${attachmentInfo}
-                            <p style="color: #999; font-size: 14px; margin-top: 15px;">@lang("This action cannot be undone.")</p>
                         </div>
                         <div class="custom-confirm-buttons">
                             <button type="button" class="btn-confirm-yes" id="confirmYes">
-                                <i class="fas fa-check"></i> @lang("Yes, Send Now")
+                                <i class="fas fa-check"></i> @lang("Yes")
                             </button>
                             <button type="button" class="btn-confirm-no" id="confirmNo">
-                                <i class="fas fa-times"></i> @lang("No, Cancel")
+                                <i class="fas fa-times"></i> @lang("No")
                             </button>
                         </div>
                     </div>
@@ -559,6 +563,28 @@
 
         // Function to submit form and show custom loading screen
         function sendWhatsAppMessages() {
+            // Validate before sending
+            var selectedCount = $('.user-checkbox:checked').length;
+            var message = $('#whatsapp-message').val().trim();
+            
+            if (selectedCount === 0) {
+                Notiflix.Report.warning(
+                    '@lang("No Users Selected")',
+                    '@lang("Please select at least one user to send the message.")',
+                    '@lang("OK")'
+                );
+                return;
+            }
+            
+            if (!message || message === '') {
+                Notiflix.Report.warning(
+                    '@lang("Message Required")',
+                    '@lang("Please enter a message to send.")',
+                    '@lang("OK")'
+                );
+                return;
+            }
+            
             // Show custom loading screen
             var loadingHtml = `
                 <div id="loadingScreen" class="loading-screen">
@@ -579,8 +605,37 @@
             // Disable button and show loading state
                 $('#send-btn').html('<i class="fas fa-spinner fa-spin"></i> @lang("Sending...")').prop('disabled', true);
             
-            // Submit form via AJAX
-            var formData = new FormData($('form')[0]);
+            // Collect selected users first
+            var selectedUsers = [];
+            $('.user-checkbox:checked').each(function() {
+                selectedUsers.push($(this).val());
+            });
+            
+            // Create FormData manually to ensure proper array handling
+            var formData = new FormData();
+            
+            // Add CSRF token
+            var csrfToken = $('meta[name="csrf-token"]').attr('content') || $('input[name="_token"]').val();
+            formData.append('_token', csrfToken);
+            
+            // Add message
+            formData.append('message', $('#whatsapp-message').val());
+            
+            // Add selected users as array (Laravel expects selected_users[] for arrays)
+            selectedUsers.forEach(function(userId) {
+                formData.append('selected_users[]', userId);
+            });
+            
+            // Add attachment if present
+            var attachmentFile = $('#attachment')[0].files[0];
+            if (attachmentFile) {
+                formData.append('attachment', attachmentFile);
+            }
+            
+            // Debug: Log what we're sending (remove in production)
+            console.log('Selected users:', selectedUsers);
+            console.log('Message:', $('#whatsapp-message').val());
+            console.log('Has attachment:', !!attachmentFile);
             
             $.ajax({
                 url: $('form').attr('action'),
@@ -588,22 +643,41 @@
                 data: formData,
                 processData: false,
                 contentType: false,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': csrfToken
+                },
                 success: function(response) {
                     // Remove loading screen
                     $('#loadingScreen').fadeOut(300, function() {
                         $(this).remove();
                     });
                     
-                    // Show success message
-                    Notiflix.Report.success(
-                        '✅ @lang("Success!")',
-                        '@lang("WhatsApp messages have been sent successfully!")',
-                        '@lang("OK")',
-                        function() {
-                            // Reload page to reset form
-                            window.location.reload();
-                        }
-                    );
+                    // Determine if backend reported success
+                    if (response && response.success) {
+                        Notiflix.Report.Success(
+                            '✅ @lang("Success!")',
+                            response.message || '@lang("WhatsApp messages have been sent successfully!")',
+                            '@lang("OK")',
+                            function() {
+                                // Reload page to reset form
+                                window.location.reload();
+                            }
+                        );
+                    } else {
+                        // Treat missing/false success as failure
+                        var errorMessage = (response && response.message)
+                            ? response.message
+                            : '@lang("Failed to send WhatsApp messages. Please try again.")';
+                        
+                        $('#send-btn').html('<i class="fab fa-whatsapp"></i> <span>@lang("Send WhatsApp Message")</span>').prop('disabled', false);
+                        
+                        Notiflix.Report.Failure(
+                            '❌ @lang("Error")',
+                            errorMessage,
+                            '@lang("OK")'
+                        );
+                    }
                 },
                 error: function(xhr, status, error) {
                     // Remove loading screen
@@ -614,14 +688,27 @@
                     // Reset button
                     $('#send-btn').html('<i class="fab fa-whatsapp"></i> <span>@lang("Send WhatsApp Message")</span>').prop('disabled', false);
                     
-                    // Show error message
+                    // Show error message with detailed validation errors
                     var errorMessage = '@lang("Failed to send WhatsApp messages. Please try again.")';
-                    if (xhr.responseJSON && xhr.responseJSON.message) {
-                        errorMessage = xhr.responseJSON.message;
+                    if (xhr.responseJSON) {
+                        if (xhr.responseJSON.message) {
+                            errorMessage = xhr.responseJSON.message;
+                        } else if (xhr.responseJSON.errors) {
+                            // Build error message from validation errors
+                            var errors = [];
+                            $.each(xhr.responseJSON.errors, function(field, messages) {
+                                $.each(messages, function(index, message) {
+                                    errors.push(message);
+                                });
+                            });
+                            if (errors.length > 0) {
+                                errorMessage = errors.join('<br>');
+                            }
+                        }
                     }
                     
-                    Notiflix.Report.failure(
-                        '❌ @lang("Error")',
+                    Notiflix.Report.Failure(
+                        '❌ @lang("Validation Error")',
                         errorMessage,
                         '@lang("OK")'
                     );

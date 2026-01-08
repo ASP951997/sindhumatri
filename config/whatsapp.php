@@ -16,13 +16,13 @@ return [
     'api_url' => env('WHATSAPP_API_URL', 'https://messagesapi.co.in/chat'),
     
     // Your Message API ID (Device Identifier) - The unique ID from your messagesapi.co.in account
-    'api_id' => env('WHATSAPP_API_ID', '7e78b0f48d5c4428b3d0cdf70406db2f'),
-    
+    'api_id' => env('WHATSAPP_API_ID', 'ee49864d6ce84458b84f82d2a55d00fb'),
+
     // Your Device Name - The device name registered with messagesapi.co.in
     'device_name' => env('WHATSAPP_DEVICE_NAME', 'Motorola'),
     
     // Legacy: Your Message API UID (for backward compatibility)
-    'uid' => env('WHATSAPP_UID', '7e78b0f48d5c4428b3d0cdf70406db2f'),
+    'uid' => env('WHATSAPP_UID', 'ee49864d6ce84458b84f82d2a55d00fb'),
     
     // Your Message API API Key (from Message API dashboard)
     'api_key' => env('WHATSAPP_API_KEY', 'ad7838b8e5b94b978757bb5ce9b634f9'),
@@ -103,6 +103,19 @@ return [
         'max_size' => env('WHATSAPP_MAX_FILE_SIZE', 10240), // 10MB in KB
         'storage_path' => 'whatsapp/attachments',
     ],
+    
+    /*
+    |--------------------------------------------------------------------------
+    | Curl / HTTP Client Settings
+    |--------------------------------------------------------------------------
+    |
+    | Settings controlling outgoing HTTP requests to the WhatsApp provider.
+    | Increase the timeout if requests between servers need more time.
+    |
+    */
+    'curl_retries' => env('WHATSAPP_CURL_RETRIES', 2),
+    'curl_timeout_seconds' => env('WHATSAPP_CURL_TIMEOUT_SECONDS', 60),
+    'curl_connect_timeout_seconds' => env('WHATSAPP_CURL_CONNECT_TIMEOUT_SECONDS', 10),
     
     /*
     |--------------------------------------------------------------------------

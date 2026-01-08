@@ -488,6 +488,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.'], function () {
 
         Route::get('/whatsapp-send', 'Admin\UsersController@whatsappToSelectedUsers')->name('whatsapp-send');
         Route::post('/whatsapp-send', 'Admin\UsersController@sendWhatsAppToSelectedUsers')->name('whatsapp-send.store');
+        Route::get('/whatsapp-history', 'Admin\UsersController@whatsappMessageHistory')->name('whatsapp-history');
 
         // user profile make approve/pending
         Route::put('/users/profile/approve/{id}', 'Admin\UsersController@profileApprove')->name('profile-approve');
@@ -807,7 +808,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.'], function () {
         Route::match(['get', 'post'], 'fb-messenger-config', 'Admin\BasicController@fbMessengerConfig')->name('fb.messenger.control');
         Route::match(['get', 'post'], 'google-recaptcha', 'Admin\BasicController@googleRecaptchaConfig')->name('google.recaptcha.control');
         Route::match(['get', 'post'], 'google-analytics', 'Admin\BasicController@googleAnalyticsConfig')->name('google.analytics.control');
-        
+
         /* ======== WhatsApp Settings =======*/
         Route::match(['get', 'post'], 'whatsapp-settings', 'Admin\BasicController@whatsappConfig')->name('whatsapp.settings');
         Route::get('whatsapp-check-status', 'Admin\BasicController@checkWhatsAppStatus')->name('whatsapp.checkStatus');

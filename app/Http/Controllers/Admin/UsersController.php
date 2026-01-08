@@ -20,6 +20,7 @@ use Facades\App\Services\BasicService;
 use Stevebauman\Purify\Facades\Purify;
 use Illuminate\Support\Facades\Validator;
 use App\Services\WhatsAppService;
+use App\Models\WhatsAppMessage;
 
 
 class UsersController extends Controller
@@ -372,6 +373,15 @@ class UsersController extends Controller
         return view('admin.users.whatsapp-form', compact('users'));
     }
 
+    public function whatsappMessageHistory()
+    {
+        $messages = WhatsAppMessage::with('user')
+            ->orderBy('created_at', 'DESC')
+            ->paginate(config('basic.paginate', 20));
+        
+        return view('admin.users.whatsapp-history', compact('messages'));
+    }
+
 
     public function sendEmailToUsers(Request $request)
     {
@@ -394,6 +404,17 @@ class UsersController extends Controller
 
     public function sendWhatsAppToSelectedUsers(Request $request)
     {
+        // Log incoming request for debugging
+        \Log::info('WhatsApp Send Request', [
+            'has_message' => $request->has('message'),
+            'message_length' => $request->has('message') ? strlen($request->input('message')) : 0,
+            'has_selected_users' => $request->has('selected_users'),
+            'selected_users_count' => $request->has('selected_users') ? (is_array($request->input('selected_users')) ? count($request->input('selected_users')) : 'not_array') : 0,
+            'selected_users' => $request->input('selected_users'),
+            'has_attachment' => $request->hasFile('attachment'),
+            'all_input' => $request->except(['_token', 'attachment'])
+        ]);
+        
         // Validate first before cleaning
         $rules = [
             'message' => 'required',
@@ -402,10 +423,22 @@ class UsersController extends Controller
         ];
         $validator = Validator::make($request->all(), $rules);
         if ($validator->fails()) {
+            \Log::warning('WhatsApp Send Validation Failed', [
+                'errors' => $validator->errors()->toArray(),
+                'request_data' => $request->except(['_token', 'attachment'])
+            ]);
+            
             if ($request->ajax()) {
+                // Build a detailed error message
+                $errorMessages = [];
+                foreach ($validator->errors()->all() as $error) {
+                    $errorMessages[] = $error;
+                }
+                $errorMessage = implode(' ', $errorMessages);
+                
                 return response()->json([
                     'success' => false,
-                    'message' => 'Validation failed',
+                    'message' => 'Validation failed: ' . $errorMessage,
                     'errors' => $validator->errors()
                 ], 422);
             }
@@ -425,6 +458,25 @@ class UsersController extends Controller
             $storagePath = $file->storeAs('whatsapp/attachments', $fileName, 'public');
             // Get the full file system path for direct upload to WhatsApp API
             $attachmentPath = storage_path('app/public/' . $storagePath);
+            
+            // Defensive check: ensure file was stored and is readable by PHP process
+            if (!file_exists($attachmentPath) || !is_readable($attachmentPath)) {
+                \Log::error('WhatsApp attachment not stored or not readable after upload', [
+                    'attachmentPath' => $attachmentPath,
+                    'storagePath' => $storagePath,
+                    'exists' => file_exists($attachmentPath),
+                    'readable' => is_readable($attachmentPath)
+                ]);
+
+                if ($request->ajax()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Attachment upload failed (file not available on server).'
+                    ], 500);
+                }
+
+                return back()->with('error', 'Attachment upload failed (file not available on server).');
+            }
         }
 
         // Get selected users
@@ -449,6 +501,11 @@ class UsersController extends Controller
         $failedCount = 0;
         $noPhoneCount = 0;
 
+        // Get API credentials for logging
+        $basicControl = \App\Models\Configure::first();
+        $apiId = $basicControl->whatsapp_api_id ?? null;
+        $deviceName = $basicControl->whatsapp_device_name ?? null;
+
         foreach ($selectedUsers as $user) {
             if ($user->phone) {
                 // Use the new WhatsApp service with direct file upload support
@@ -459,7 +516,33 @@ class UsersController extends Controller
                     $attachmentPath
                 );
                 
-                if ($result['success']) {
+                // Save message to database
+                $whatsappMessage = WhatsAppMessage::create([
+                    'user_id' => $user->id,
+                    'phone' => $user->phone,
+                    'recipient_name' => $user->firstname . ' ' . $user->lastname,
+                    'message' => $message,
+                    'status' => !empty($result['success']) ? 'sent' : 'failed',
+                    'api_response' => isset($result['response']) ? (is_string($result['response']) ? substr($result['response'], 0, 500) : json_encode($result['response'])) : null,
+                    'http_code' => $result['http_code'] ?? null,
+                    'error_message' => $result['error'] ?? ($result['message'] ?? null),
+                    'attachment_path' => $attachmentPath ? basename($attachmentPath) : null,
+                    'api_id' => $apiId,
+                    'device_name' => $deviceName,
+                ]);
+                
+                // Collect detailed per-user result for debugging
+                $details[] = [
+                    'user_id' => $user->id,
+                    'phone' => $user->phone,
+                    'success' => $result['success'] ?? false,
+                    'message' => $result['message'] ?? null,
+                    'http_code' => $result['http_code'] ?? null,
+                    'response' => isset($result['response']) ? (is_string($result['response']) ? substr($result['response'], 0, 1000) : json_encode($result['response'])) : null,
+                    'error' => $result['error'] ?? null
+                ];
+
+                if (!empty($result['success'])) {
                     $successCount++;
                 } else {
                     $failedCount++;
@@ -469,7 +552,8 @@ class UsersController extends Controller
             }
         }
 
-        $messageText = "WhatsApp messages sent successfully to {$successCount} users.";
+        $totalUsers = $selectedUsers->count();
+        $messageText = "WhatsApp messages processed. Success: {$successCount}/{$totalUsers}.";
         if ($attachmentPath) {
             $messageText .= " (with file attachment)";
         }
@@ -480,139 +564,37 @@ class UsersController extends Controller
             $messageText .= " {$noPhoneCount} users skipped (no phone number).";
         }
 
+        // Decide overall result (fail if none delivered)
+        $overallSuccess = $successCount > 0;
+
         // Return JSON for AJAX requests
-        if ($request->ajax()) {
-            return response()->json([
-                'success' => true,
+        if ($request->ajax() || $request->wantsJson()) {
+            $payload = [
+                'success' => $overallSuccess,
                 'message' => $messageText,
                 'stats' => [
                     'success' => $successCount,
                     'failed' => $failedCount,
                     'no_phone' => $noPhoneCount,
-                    'total' => $selectedUsers->count()
-                ]
-            ]);
-        }
-
-        return back()->with('success', $messageText);
-    }
-
-    private function sendWhatsAppMessage($phone, $message, $userName = null, $fileUrl = null)
-    {
-        try {
-            // Replace placeholders in message
-            $personalizedMessage = str_replace('[[name]]', $userName ?? 'User', $message);
-            
-            // Check if simulation mode is enabled
-            if (config('whatsapp.simulation_mode.enabled', true)) {
-                return $this->simulateWhatsAppMessage($phone, $personalizedMessage, $userName);
-            }
-            
-            // Message API configuration
-            $apiUrl = config('whatsapp.api_url');
-            $apiId = config('whatsapp.api_id', config('whatsapp.uid'));
-            $deviceName = config('whatsapp.device_name');
-            
-            if (!$apiUrl) {
-                \Log::error('WhatsApp API URL not configured properly');
-                return false;
-            }
-
-            // Format phone number (remove + and ensure it's in correct format)
-            $formattedPhone = $this->formatPhoneNumber($phone);
-            // Ensure country code is present
-            if (substr($formattedPhone, 0, 1) === '+') {
-                $formattedPhone = substr($formattedPhone, 1);
-            }
-            if (substr($formattedPhone, 0, 2) !== '91') {
-                $formattedPhone = '91' . $formattedPhone;
-            }
-            
-            // Build query parameters for GET request
-            $queryParams = [
-                'phone' => $formattedPhone,
-                'message' => $personalizedMessage,
+                    'total' => $totalUsers
+                ],
+                'details' => $details ?? []
             ];
-            
-            // Add file URL if attachment exists
-            if ($fileUrl) {
-                $queryParams['file'] = $fileUrl;
-            }
-            
-            // Build full URL with query parameters
-            $fullUrl = $apiUrl . '?' . http_build_query($queryParams);
 
-            // Send WhatsApp message via Message API using GET request
-            $ch = curl_init();
-            curl_setopt($ch, CURLOPT_URL, $fullUrl);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
-            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-            curl_setopt($ch, CURLOPT_MAXREDIRS, 3);
-            
-            $response = curl_exec($ch);
-            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            $curlError = curl_error($ch);
-            curl_close($ch);
-
-            // Log the request and response for debugging
-            \Log::info('WhatsApp API Request (GET with File Support)', [
-                'api_url' => $apiUrl,
-                'phone' => $formattedPhone,
-                'has_file' => $fileUrl ? 'Yes' : 'No',
-                'file_url' => $fileUrl,
-                'message_preview' => substr($personalizedMessage, 0, 50) . '...',
-                'response' => $response,
-                'http_code' => $httpCode,
-                'curl_error' => $curlError
-            ]);
-
-            // Check if request was successful
-            if ($httpCode === 200 || $httpCode === 201) {
-                $responseData = json_decode($response, true);
-                
-                // Check for success indicators
-                if (isset($responseData['status']) && in_array($responseData['status'], ['success', 'sent', 'delivered'])) {
-                    return true;
-                }
-                if (isset($responseData['success']) && $responseData['success'] === true) {
-                    return true;
-                }
-                if (isset($responseData['message_id']) || isset($responseData['id'])) {
-                    return true;
-                }
-                if (isset($responseData['result']) && $responseData['result'] === 'success') {
-                    return true;
-                }
-            }
-
-            \Log::error('WhatsApp message sending failed', [
-                'http_code' => $httpCode,
-                'response' => $response,
-                'curl_error' => $curlError
-            ]);
-
-            return false;
-        } catch (\Exception $e) {
-            \Log::error('WhatsApp message sending exception: ' . $e->getMessage());
-            return false;
+            $statusCode = $overallSuccess ? 200 : 500;
+            return response()->json($payload, $statusCode);
         }
-    }
 
-    private function formatPhoneNumber($phone)
-    {
-        // Remove all non-numeric characters except +
-        $phone = preg_replace('/[^0-9+]/', '', $phone);
-        
-        // If phone doesn't start with +, add default country code
-        if (!str_starts_with($phone, '+')) {
-            $defaultCountryCode = config('whatsapp.default_country_code', '+91');
-            $phone = $defaultCountryCode . $phone;
+        // Log details for non-AJAX requests for troubleshooting
+        if (isset($details) && count($details) > 0) {
+            \Log::info('WhatsApp batch send details', ['details' => $details]);
         }
-        
-        return $phone;
+
+        if ($overallSuccess) {
+            return back()->with('success', $messageText);
+        }
+
+        return back()->with('error', $messageText);
     }
 
 
