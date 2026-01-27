@@ -17,7 +17,7 @@
                         <div class="img-box text-center">
                             <img
                                 class="img-fluid"
-                                src="{{getFile(config('location.blog.path').'thumb_'.$blog->image)}}"
+                                src="{{ asset('assets/uploads/blog/thumb_couple_anjali_karan.jpg') }}"
                                 alt="@lang('blog image')"
                                 style="max-width: 100%; height: auto; margin: 0 auto; display: block;"
                             />

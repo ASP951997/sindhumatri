@@ -1,4 +1,3 @@
-
 <?php $__env->startSection('title'); ?>
     <?php echo app('translator')->get($user->username); ?>
 <?php $__env->stopSection(); ?>
@@ -20,7 +19,7 @@
                             </div>
                         </div>
                         <h3> <?php echo app('translator')->get(ucfirst($user->username)); ?></h3>
-                        <p><?php echo app('translator')->get('Joined At'); ?> <?php echo app('translator')->get($user->created_at->format('d M,Y h:i A')); ?> </p>
+                        <p><?php echo app('translator')->get('Joined At'); ?> <?php echo app('translator')->get($user->created_at ? $user->created_at->format('d M,Y h:i A') : 'N/A'); ?> </p>
                     </div>
                 </div>
 

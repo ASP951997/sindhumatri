@@ -17,7 +17,7 @@
                         <div class="img-box text-center">
                             <img
                                 class="img-fluid"
-                                src="<?php echo e(getFile(config('location.blog.path').'thumb_'.$blog->image)); ?>"
+                                src="<?php echo e(asset('assets/uploads/blog/thumb_couple_anjali_karan.jpg')); ?>"
                                 alt="<?php echo app('translator')->get('blog image'); ?>"
                                 style="max-width: 100%; height: auto; margin: 0 auto; display: block;"
                             />

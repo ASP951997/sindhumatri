@@ -97,7 +97,8 @@ class FrontendController extends Controller
     public function blog()
     {
         $data['title'] = "Blog";
-        $data['allBlogs'] = Blog::with('details', 'category.details')->latest()->paginate(3);
+        // Show only the latest blog post instead of paginating multiple
+        $data['allBlogs'] = Blog::with('details', 'category.details')->latest()->take(1)->get();
         $data['blogCategory'] = BlogCategory::with('details')->withCount('blog')->latest()->get();
 
         return view($this->theme . 'blog', $data);

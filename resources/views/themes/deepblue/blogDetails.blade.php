@@ -12,7 +12,7 @@
                     <div class="img-box text-center">
                        <img
                           class="img-fluid"
-                          src="{{getFile(config('location.blog.path').$singleBlog->image)}}"
+                          src="{{ asset('assets/uploads/blog/wedding_couple_anjali_karan.jpg') }}"
                           alt="@lang('blog img')"
                           style="max-width: 100%; height: auto; margin: 0 auto; display: block;"
                        />
@@ -75,7 +75,7 @@
                             <div class="img-box">
                             <img
                                 class="img-fluid"
-                                src="{{ getFile(config('location.blog.path'). @$blog->image) }}"
+                                src="{{ asset('assets/uploads/blog/thumb_couple_anjali_karan.jpg') }}"
                                 alt="@lang('related blog img')"
                             />
                             </div>

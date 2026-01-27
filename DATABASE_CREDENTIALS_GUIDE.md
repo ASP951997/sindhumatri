@@ -155,3 +155,21 @@ MYSQL_ATTR_SSL_CA=/path/to/ca-cert.pem
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

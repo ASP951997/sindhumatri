@@ -14,6 +14,11 @@
                             <div class="col-12">
                                 <div class="dashboard-title">
                                     <h5>@lang('Matched Profile')</h5>
+                                    @if($allUser->count() > 0 && $allUser->count() <= 6)
+                                        <small class="text-muted d-block mt-2">
+                                            @lang('Showing compatible profiles based on your preferences. Consider updating your partner expectations for more matches.')
+                                        </small>
+                                    @endif
                                 </div>
                             </div>
 
@@ -145,7 +150,16 @@
                                         </div>
                                     @empty
                                         <div class="d-flex flex-column justify-content-center py-5">
-                                            <h3 class="text-center mt-5 mb-5">@lang('No Member Available.')</h3>
+                                            <h3 class="text-center mt-5 mb-3">@lang('No Perfect Matches Found')</h3>
+                                            <p class="text-center text-muted mb-4">@lang('We couldn\'t find profiles that match all your partner expectations. However, you can still explore other compatible profiles or adjust your preferences to see more options.')</p>
+                                            <div class="text-center">
+                                                <a href="{{ route('user.matched.profile') }}" class="btn btn-primary me-2">
+                                                    <i class="fas fa-refresh"></i> @lang('Refresh Results')
+                                                </a>
+                                                <a href="{{ route('user.partnerExpectation') }}" class="btn btn-outline-primary">
+                                                    <i class="fas fa-cog"></i> @lang('Adjust Preferences')
+                                                </a>
+                                            </div>
                                         </div>
                                     @endforelse
 

@@ -1,61 +1,45 @@
 <?php
-
-/**
- * Update WhatsApp API Credentials
- * New credentials: API ID and Device Name
- */
-
-// Load Laravel bootstrap
-require __DIR__.'/vendor/autoload.php';
-
-$app = require_once __DIR__.'/bootstrap/app.php';
+require 'vendor/autoload.php';
+$app = require_once 'bootstrap/app.php';
 $kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
 $kernel->bootstrap();
 
-use App\Models\Configure;
-
 try {
-    echo "==============================================\n";
-    echo "WhatsApp Credentials Update\n";
-    echo "==============================================\n\n";
-    
-    $config = Configure::first();
-    
-    if (!$config) {
-        echo "❌ ERROR: Configure record not found!\n";
-        exit(1);
+    echo "=== Updating WhatsApp API Credentials ===\n";
+
+    // New working credentials from documentation
+    $newApiId = 'ad7838b8e5b94b978757bb5ce9b634f9';
+    $newDeviceName = 'OnePlus9';
+
+    // Update the configures table
+    $updated = DB::table('configures')
+        ->where('id', 1) // Assuming first record
+        ->update([
+            'whatsapp_api_id' => $newApiId,
+            'whatsapp_device_name' => $newDeviceName,
+            'updated_at' => now()
+        ]);
+
+    if ($updated) {
+        echo "✅ WhatsApp credentials updated successfully!\n";
+        echo "New API ID: {$newApiId}\n";
+        echo "New Device: {$newDeviceName}\n";
+    } else {
+        echo "❌ Failed to update credentials\n";
     }
-    
-    // Set new WhatsApp credentials
-    $config->whatsapp_api_id = '908b93018a534bc79e52dc344a0ab85b';
-    $config->whatsapp_device_name = 'SPMO';
-    $config->save();
-    
-    echo "✓ WhatsApp API ID: 908b93018a534bc79e52dc344a0ab85b\n";
-    echo "✓ WhatsApp Device Name: SPMO\n\n";
-    echo "==============================================\n";
-    echo "Credentials updated successfully!\n";
-    echo "==============================================\n\n";
-    echo "You can now access WhatsApp Settings at:\n";
-    echo "http://localhost:8000/admin/whatsapp-settings\n\n";
-    echo "Or update via Admin Panel:\n";
-    echo "Admin Panel → Controls → WhatsApp Settings\n\n";
-    
-} catch (\Exception $e) {
-    echo "❌ ERROR: " . $e->getMessage() . "\n";
-    exit(1);
+
+    // Verify the update
+    $config = DB::table('configures')->first();
+    echo "\n=== Verification ===\n";
+    echo "Current API ID: " . ($config->whatsapp_api_id ?? 'NOT SET') . "\n";
+    echo "Current Device: " . ($config->whatsapp_device_name ?? 'NOT SET') . "\n";
+
+    if ($config->whatsapp_api_id === $newApiId && $config->whatsapp_device_name === $newDeviceName) {
+        echo "\n🎉 Credentials updated successfully! WhatsApp should now work.\n";
+    } else {
+        echo "\n❌ Verification failed - credentials not updated properly\n";
+    }
+
+} catch (Exception $e) {
+    echo "Error: " . $e->getMessage() . "\n";
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-

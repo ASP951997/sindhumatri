@@ -33,9 +33,9 @@ class WhatsAppService
             // ignore - model may not be available in some CLI/testing contexts
         }
 
-        // Prefer explicit config values, then DB values, then hard-coded fallback
-        $this->apiId = config('whatsapp.api_id') ?: ($basicControl->whatsapp_api_id ?? null) ?: env('WHATSAPP_API_ID');
-        $this->deviceName = config('whatsapp.device_name') ?: ($basicControl->whatsapp_device_name ?? null) ?: env('WHATSAPP_DEVICE_NAME');
+        // Prefer DB values first, then config values, then env variables as fallback
+        $this->apiId = ($basicControl->whatsapp_api_id ?? null) ?: config('whatsapp.api_id') ?: env('WHATSAPP_API_ID');
+        $this->deviceName = ($basicControl->whatsapp_device_name ?? null) ?: config('whatsapp.device_name') ?: env('WHATSAPP_DEVICE_NAME');
 
         // Base URL and other settings from config
         $this->baseUrl = rtrim(config('whatsapp.api_url', 'https://messagesapi.co.in/chat'), '/');

@@ -17,6 +17,10 @@ class Admin extends Authenticatable
     protected $casts = [
         'admin_access' => 'object'
     ];
+
+    protected $fillable = [
+        'name', 'username', 'email', 'password', 'status'
+    ];
     public function siteNotificational()
     {
         return $this->morphOne(SiteNotification::class, 'siteNotificational', 'site_notificational_type', 'site_notificational_id');

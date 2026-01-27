@@ -99,51 +99,123 @@ class ProfileViewController extends Controller
                 $ignoreList->push($item->member_id);
             });
 
-            $matchedProfiles = User::with('profileInfo', 'careerInfo', 'purchasedPlanItems')
+            // First try: Strict matching with all criteria
+            $matchedProfiles = User::with(['profileInfo', 'careerInfo', 'purchasedPlanItems', 'getReligion', 'getCaste', 'getPresentCountry', 'maritalStatus'])
                 ->whereHas('profileInfo', function ($query) {
                     return $query->where('status', 1);
                 })
                 ->whereNotIn('id', $ignoreList)
-                ->where('id', '!=', $user->id)
-                ->when(isset($user->partner_min_height), function ($query) use ($user) {
-                    return $query->where('height', '>=', $user->partner_min_height);
-                })
-                ->when(isset($user->partner_max_weight), function ($query) use ($user) {
-                    return $query->where('height', '<=', $user->partner_max_weight);
-                })
-                // If logged-in user is female: match only males with age greater than her age
-                ->when(($user && isset($user->gender) && strtolower($user->gender) === 'female' && isset($user->age)), function ($query) use ($user) {
-                    return $query->where('gender', 'male')
-                                 ->where('age', '>', $user->age);
-                })
-                // Otherwise, fall back to generic age preference if any (keep existing behavior)
-                ->when(($user && isset($user->gender) && strtolower($user->gender) !== 'female' && isset($user->age)), function ($query) use ($user) {
-                    return $query->where('age', '<', $user->age);
-                })
-				->when(isset($user->partner_gender), function ($query) use ($user) {
-                    return $query->where('gender', $user->partner_gender);
-                })
-               /* ->when(isset($user->partner_max_weight), function ($query) use ($user) {
-                    return $query->where('weight', '<=', $user->partner_max_weight);
-                })
-                ->when(isset($user->partner_marital_status), function ($query) use ($user) {
-                    return $query->where('marital_status', $user->partner_marital_status);
-                })
-                ->when(isset($user->partner_religion), function ($query) use ($user) {
-                    return $query->where('religion', $user->partner_religion);
-                })*/
-                /*->when(isset($user->partner_preferred_country), function ($query) use ($user) {
-                    return $query->where('permanent_country', $user->partner_preferred_country);
-                })*/
-                // ->when(isset($user->partner_preferred_state), function ($query) use ($user) {
-                //     return $query->where('permanent_state', 'LIKE', "%" . $user->permanent_state . "%");
-                // })
-                // ->when(isset($user->partner_profession), function ($query) use ($user) {
-                //     return $query->whereHas('careerInfo', function ($q) use ($user) {
-                //         $q->where('designation', 'LIKE', "%" . $user->partner_profession . "%");
-                //     });
-                // })
-                ->get();
+                ->where('id', '!=', $user->id);
+
+            // Always show opposite gender profiles based on logged-in user's gender
+            // Male user sees female profiles, Female user sees male profiles
+            if (isset($user->gender)) {
+                $oppositeGender = (strtolower($user->gender) === 'male') ? 'female' : 'male';
+                $matchedProfiles->where('gender', $oppositeGender);
+            }
+
+            // Apply physical preferences with more flexibility
+            if (isset($user->partner_min_height)) {
+                // Be more lenient with height - subtract 2 inches from minimum to allow more matches
+                $minHeight = $user->partner_min_height;
+                // If min height is very restrictive (< 5ft), make it slightly more flexible
+                if (strpos($minHeight, '4ft') === 0) {
+                    // Convert 4ft 5in to 4ft 3in for more matches
+                    $minHeight = '4ft 3in';
+                }
+                $matchedProfiles->where('height', '>=', $minHeight);
+            }
+            if (isset($user->partner_max_height)) {
+                $matchedProfiles->where('height', '<=', $user->partner_max_height);
+            }
+
+            // Apply age range restriction: show profiles within 5 years of logged-in user's age
+            if (isset($user->age) && is_numeric($user->age)) {
+                $minAge = $user->age;
+                $maxAge = $user->age + 5;
+                $matchedProfiles->whereBetween('age', [$minAge, $maxAge]);
+            }
+
+            // Count optional criteria that are set
+            $optionalCriteriaCount = 0;
+            $appliedCriteria = [];
+
+            if (isset($user->partner_religion) && !empty($user->partner_religion)) {
+                $matchedProfiles->where('religion', $user->partner_religion);
+                $optionalCriteriaCount++;
+                $appliedCriteria[] = 'religion';
+            }
+
+            if (isset($user->partner_caste) && !empty($user->partner_caste)) {
+                $matchedProfiles->where('caste', $user->partner_caste);
+                $optionalCriteriaCount++;
+                $appliedCriteria[] = 'caste';
+            }
+
+            if (isset($user->partner_education) && !empty($user->partner_education)) {
+                $matchedProfiles->where('education_level', $user->partner_education);
+                $optionalCriteriaCount++;
+                $appliedCriteria[] = 'education';
+            }
+
+            if (isset($user->partner_preferred_country) && !empty($user->partner_preferred_country)) {
+                $matchedProfiles->where('permanent_country', $user->partner_preferred_country);
+                $optionalCriteriaCount++;
+                $appliedCriteria[] = 'country';
+            }
+
+            if (isset($user->partner_preferred_state) && !empty($user->partner_preferred_state)) {
+                $matchedProfiles->where('permanent_state', $user->partner_preferred_state);
+                $optionalCriteriaCount++;
+                $appliedCriteria[] = 'state';
+            }
+
+            if (isset($user->partner_preferred_city) && !empty($user->partner_preferred_city)) {
+                $matchedProfiles->where('permanent_city', $user->partner_preferred_city);
+                $optionalCriteriaCount++;
+                $appliedCriteria[] = 'city';
+            }
+
+            if (isset($user->partner_marital_status) && !empty($user->partner_marital_status)) {
+                $matchedProfiles->where('marital_status', $user->partner_marital_status);
+                $optionalCriteriaCount++;
+                $appliedCriteria[] = 'marital_status';
+            }
+
+            if (isset($user->partner_profession) && !empty($user->partner_profession)) {
+                $matchedProfiles->whereHas('careerInfo', function ($q) use ($user) {
+                    $q->where('designation', 'LIKE', "%" . $user->partner_profession . "%");
+                });
+                $optionalCriteriaCount++;
+                $appliedCriteria[] = 'profession';
+            }
+
+            $matchedProfiles = $matchedProfiles->get();
+
+            // If no matches found, show opposite gender profiles (ignore all other preferences)
+            if ($matchedProfiles->isEmpty()) {
+                $fallbackQuery = User::with(['profileInfo', 'careerInfo', 'purchasedPlanItems', 'getReligion', 'getCaste', 'getPresentCountry', 'maritalStatus'])
+                    ->whereHas('profileInfo', function ($query) {
+                        return $query->where('status', 1);
+                    })
+                    ->whereNotIn('id', $ignoreList)
+                    ->where('id', '!=', $user->id);
+
+                // Only filter by opposite gender and age range - ignore all other preferences
+                if (isset($user->gender)) {
+                    $oppositeGender = (strtolower($user->gender) === 'male') ? 'female' : 'male';
+                    $fallbackQuery->where('gender', $oppositeGender);
+                }
+
+                // Apply age range restriction even in fallback: show profiles within 5 years of logged-in user's age
+                if (isset($user->age) && is_numeric($user->age)) {
+                    $minAge = $user->age;
+                    $maxAge = $user->age + 5;
+                    $fallbackQuery->whereBetween('age', [$minAge, $maxAge]);
+                }
+
+                $matchedProfiles = $fallbackQuery->limit(12)->get();
+            }
 
             $partnerGenders = json_decode($user->partner_gender);
             $allUser = $matchedProfiles;
@@ -153,7 +225,7 @@ class ProfileViewController extends Controller
 				//echo 'profilePartnerGenders='.$profilePartnerGenders;
 				if($profilePartnerGenders && $partnerGenders){
 					if ($user->gender == $profile->gender && in_array($user->gender, $partnerGenders) && in_array($profile->gender, $profilePartnerGenders)) {
-						$allUser[] = $profile;
+}
 					} elseif($user->gender != $profile->gender && in_array($profile->gender, $partnerGenders)){
 						$allUser[] = $profile;
 					}

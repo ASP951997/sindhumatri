@@ -159,3 +159,21 @@ $status = $whatsapp->checkConnection();
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

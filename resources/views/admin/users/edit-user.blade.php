@@ -20,7 +20,7 @@
                             </div>
                         </div>
                         <h3> @lang(ucfirst($user->username))</h3>
-                        <p>@lang('Joined At') @lang($user->created_at->format('d M,Y h:i A')) </p>
+                        <p>@lang('Joined At') @lang($user->created_at ? $user->created_at->format('d M,Y h:i A') : 'N/A') </p>
                     </div>
                 </div>
 

@@ -1017,6 +1017,7 @@ class HomeController extends Controller
 
     public function partnerExpectation(Request $request){
 		$req = Purify::clean($request->except('_token', '_method'));
+
         $user = $this->user;
 		if($user->gender == 'Male')
 			$req['partner_gender'] = 'Female';
@@ -1099,7 +1100,33 @@ class HomeController extends Controller
         $user->partner_caste = $req['partner_caste'];
         $user->partner_sub_caste = $req['partner_sub_caste'] ?? [];
         $user->partner_language = $req['partner_language'];
-        $user->partner_education = $req['partner_education'];
+        // DEBUG: Log that we're in the controller method
+        \Log::info('PARTNER_EXPECTATION_CONTROLLER_CALLED', [
+            'user_id' => $user->id,
+            'education_raw' => $req['partner_education'] ?? 'NOT_SET',
+            'all_request_data' => $req
+        ]);
+
+        // Handle both ID values (from updated form) and string values (from cached/old forms)
+        $educationValue = $req['partner_education'] ?? null;
+
+        if (is_numeric($educationValue)) {
+            // Already an ID, use it directly
+            $user->partner_education = $educationValue;
+        } else {
+            // String value - map to ID
+            $educationMapping = [
+                'Below 10th' => 1,
+                'High School (10th)' => 2,
+                'Intermediate (12th)' => 3,
+                'Diploma' => 4,
+                "Bachelor's Degree" => 5,
+                "Master's Degree" => 6,
+                'Doctorate (PhD)' => 7,
+                'Post-Doctorate' => 8,
+            ];
+            $user->partner_education = $educationMapping[$educationValue] ?? null;
+        }
         $user->partner_profession = $req['partner_profession'];
         $user->partner_smoking_acceptancy = $req['partner_smoking_acceptancy'];
         $user->partner_drinking_acceptancy = $req['partner_drinking_acceptancy'];

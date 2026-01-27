@@ -15,7 +15,7 @@ class CreateCommunityValueDetailsTable extends Migration
     {
         Schema::create('community_value_details', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('community_value_id')->references('id')->on('community_values')->onDelete('cascade');;
+            $table->unsignedBigInteger('community_value_id');
             $table->integer('language_id');
             $table->string('name');
             $table->timestamps();

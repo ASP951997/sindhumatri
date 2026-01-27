@@ -8,37 +8,35 @@
         <div class="container">
            <div class="row gy-5 g-lg-5">
               <div class="col-lg-8">
-                @forelse ($allBlogs as $blog)
+                @if($allBlogs->count() > 0)
+                 @php $blog = $allBlogs->first(); @endphp
                  <div class="blog-box mb-5">
                     <div class="img-box text-center">
                        <img
                           class="img-fluid"
-                          src="{{getFile(config('location.blog.path').$blog->image)}}"
+                          src="{{ asset('assets/uploads/blog/wedding_couple_anjali_karan.jpg') }}"
                           alt="@lang('blog img')"
                           style="max-width: 100%; height: auto; margin: 0 auto; display: block;"
                        />
                     </div>
                     <div class="text-box">
                        <div class="date-author d-flex justify-content-between">
-                          <span>@lang('Posted by') @lang(optional($blog->details)->author) @lang('on') {{dateTime($blog->created_at,'d M, Y')}} </span>
-                          <span class="badge bg-info">@lang(optional(optional($blog->category)->details)->name)</span>
+                          <span>@lang('Posted by') {{optional($blog->details)->author}} @lang('on') {{dateTime($blog->created_at,'d M, Y')}} </span>
+                          <span class="badge bg-info">{{optional(optional($blog->category)->details)->name}}</span>
                        </div>
-                       <h4>@lang(\Illuminate\Support\Str::limit(optional($blog->details)->title,58))</h4>
-                       <p>@lang(\Illuminate\Support\Str::limit(optional($blog->details)->details,200))</p>
-                        <a href="{{route('blogDetails',[slug(@$blog->details->title), $blog->id])}}">
+                       <h4>{{\Illuminate\Support\Str::limit(optional($blog->details)->title,58)}}</h4>
+                       <p>{{\Illuminate\Support\Str::limit(optional($blog->details)->details,200)}}</p>
+                        <a href="{{route('blogDetails',[\Illuminate\Support\Str::slug(@$blog->details->title), $blog->id])}}">
                             <button class="btn-flower">
                                 @lang('Read more...')
                             </button>
                         </a>
                     </div>
                  </div>
-                @empty
+                @else
 
-                @endforelse
-
-                <div class="row py-5 mt-5">
-                    {{ $allBlogs->links() }}
-                </div>
+                {{-- Pagination removed - showing only featured blog post --}}
+                @endif
               </div>
 
 
@@ -60,7 +58,7 @@
                     <ul class="links">
                         @foreach ($blogCategory as $category)
                         <li>
-                            <a href="{{ route('CategoryWiseBlog', [slug(optional(@$category->details)->name), $category->id]) }}">@lang(optional(@$category->details)->name) ({{$category->blog_count}})</a>
+                            <a href="{{ route('CategoryWiseBlog', [\Illuminate\Support\Str::slug(optional(@$category->details)->name), $category->id]) }}">{{optional(@$category->details)->name}} ({{$category->blog_count}})</a>
                         </li>
                        @endforeach
                     </ul>

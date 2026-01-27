@@ -209,10 +209,18 @@ class UsersController extends Controller
         $user->password = bcrypt($request->password);
         $user->save();
 
-        $this->sendMailSms($user, 'PASSWORD_CHANGED', [
-            'password' => $request->password
-        ]);
-        return back()->with('success', 'Updated Successfully.');
+        // Send email notification with error handling
+        try {
+            $this->sendMailSms($user, 'PASSWORD_CHANGED', [
+                'password' => $request->password
+            ]);
+        } catch (\Exception $e) {
+            // Log the error but don't break the password update
+            \Log::error('Password change email failed: ' . $e->getMessage());
+            // Continue with success message
+        }
+
+        return back()->with('success', 'Password Updated Successfully.');
     }
 
 
